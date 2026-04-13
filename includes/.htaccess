@@ -1,0 +1,2 @@
+# includes/ contains PHP helpers — never serve directly.
+Require all denied

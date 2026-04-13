@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calendar evenimente — Biserica Sfântul Vasile · Ploiești</title>
+  <meta name="description" content="Calendarul evenimentelor parohiei Sfântul Vasile din Ploiești — sfinte slujbe, praznice, întâlniri catehetice și acțiuni caritabile.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Cardo — Old-Style Garalde serif (classical, liturgical, excellent diacritic & Greek support). -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap">
+
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/calendar.css">
+</head>
+<body>
+
+  <!-- ========== Header ========== -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="index.html" class="brand" aria-label="Biserica Sfântul Vasile — Acasă">
+        <span class="brand__mark" aria-hidden="true">✦</span>
+        <span>
+          <span class="brand__name">Biserica Sfântul Vasile</span>
+          <span class="brand__sub">Ploiești · Parohie Ortodoxă</span>
+        </span>
+      </a>
+
+      <nav class="nav" aria-label="Navigare principală">
+        <a href="index.html" class="nav__link">Acasă</a>
+        <a href="despre.html" class="nav__link">Despre</a>
+        <a href="index.html#program" class="nav__link">Program</a>
+        <a href="calendar.html" class="nav__link is-active">Calendar</a>
+        <a href="index.html#vizita" class="nav__link">Vizitează-ne</a>
+        <a href="contact.html" class="nav__link">Contact</a>
+      </nav>
+
+      <div class="header-actions">
+        <button class="nav-toggle" data-menu-toggle aria-label="Deschide meniul" aria-expanded="false" aria-controls="mobile-menu">
+          <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="mobile-menu" data-mobile-menu>
+    <nav class="mobile-menu__list" aria-label="Navigare mobilă">
+      <a href="index.html" class="mobile-menu__link">Acasă</a>
+      <a href="despre.html" class="mobile-menu__link">Despre</a>
+      <a href="index.html#program" class="mobile-menu__link">Program liturgic</a>
+      <a href="calendar.html" class="mobile-menu__link is-active">Calendar</a>
+      <a href="index.html#vizita" class="mobile-menu__link">Vizitează-ne</a>
+      <a href="contact.html" class="mobile-menu__link">Contact</a>
+    </nav>
+  </div>
+
+  <main id="main">
+
+    <!-- ========== Hero (compact) ========== -->
+    <section class="hero hero--compact" aria-label="Calendar evenimente">
+      <div class="hero__bg" aria-hidden="true">
+        <img src="https://images.unsplash.com/photo-1507692049790-de58290a4334?q=80&amp;w=2000&amp;auto=format&amp;fit=crop" alt="">
+      </div>
+
+      <div class="hero__inner hero__inner--center">
+        <div style="max-width: 820px;">
+          <span class="eyebrow hero__eyebrow">Programul parohiei · Evenimente</span>
+          <h1 class="hero__title">
+            Calendarul
+            <em>evenimentelor</em>
+          </h1>
+          <p class="hero__lead">
+            Sfintele slujbe, praznicele, întâlnirile catehetice și acțiunile comunității noastre, reunite într-un singur loc. Vă așteptăm cu bucurie.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Ornament divider -->
+    <div class="divider-ornament" aria-hidden="true">
+      <img src="assets/img/divider-ornament.svg" alt="" class="divider-ornament__svg">
+    </div>
+
+    <!-- ========== Calendar widget ========== -->
+    <section class="section section--cream" aria-labelledby="calendar-h">
+      <div class="container">
+        <div class="section-heading section-heading--center reveal">
+          <span class="eyebrow">Privește, alege, participă</span>
+          <h2 id="calendar-h" style="margin-top: var(--s-4);">
+            Evenimentele <em class="text-gradient-gold" style="font-style: italic;">parohiei</em>
+          </h2>
+          <span class="section-heading__rule"></span>
+          <p class="lead text-center mx-auto mt-5" style="color: var(--c-ink-muted);">
+            Navigați între săptămâni și luni pentru a descoperi sfintele slujbe, praznicele și activitățile comunității. Apăsați pe un eveniment pentru detalii.
+          </p>
+        </div>
+
+        <div class="reveal delay-1" id="bsv-calendar" style="margin-top: var(--s-7);"></div>
+
+        <noscript>
+          <div class="calendar" style="margin-top: var(--s-7);">
+            <div class="calendar__state">
+              <span class="material-symbols-outlined icon" aria-hidden="true">info</span>
+              <h3>Activați JavaScript pentru a vizualiza calendarul</h3>
+              <p>Pentru programul liturgic static, vizitați secțiunea <a href="index.html#program" class="link-arrow"><span>Program</span></a>.</p>
+            </div>
+          </div>
+        </noscript>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========== Footer ========== -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container">
+      <div class="site-footer__grid">
+        <div>
+          <a href="index.html" class="brand site-footer__brand">
+            <span class="brand__mark" aria-hidden="true">✦</span>
+            <span>
+              <span class="brand__name">Sfântul Vasile</span>
+              <span class="brand__sub">Ploiești · 1892</span>
+            </span>
+          </a>
+          <p class="site-footer__intro">
+            O comunitate ortodoxă dedicată păstrării tradiției bizantine și slujirii celor dragi prin credință, rugăciune și milostenie.
+          </p>
+          <div class="site-footer__socials" aria-label="Urmărește-ne">
+            <a href="#" aria-label="Facebook"><span class="material-symbols-outlined" aria-hidden="true">public</span></a>
+            <a href="#" aria-label="YouTube"><span class="material-symbols-outlined" aria-hidden="true">play_circle</span></a>
+            <a href="mailto:contact@sfvasile-ploiesti.ro" aria-label="Email"><span class="material-symbols-outlined" aria-hidden="true">mail</span></a>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="site-footer__title">Explorează</h3>
+          <ul class="site-footer__list">
+            <li><a href="index.html">Acasă</a></li>
+            <li><a href="despre.html">Despre parohie</a></li>
+            <li><a href="index.html#program">Program liturgic</a></li>
+            <li><a href="calendar.html">Calendar evenimente</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="site-footer__title">Slujiri</h3>
+          <ul class="site-footer__list">
+            <li><a href="contact.html">Botez</a></li>
+            <li><a href="contact.html">Cununie</a></li>
+            <li><a href="contact.html">Spovedanie</a></li>
+            <li><a href="contact.html">Pomelnice</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="site-footer__title">Contact</h3>
+          <ul class="site-footer__list">
+            <li><p>Strada Nicolae Titulescu<br>100054 Ploiești, Prahova</p></li>
+            <li><a href="tel:+40722000000">+40 722 000 000</a></li>
+            <li><a href="mailto:contact@sfvasile-ploiesti.ro">contact@sfvasile-ploiesti.ro</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="container" style="padding: 0;">
+        <div class="site-footer__bottom">
+          <p>© <span data-year>2026</span> Biserica Sfântul Vasile · Toate drepturile rezervate.</p>
+          <p>Construit cu smerenie și dragoste pentru comunitate.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js" defer></script>
+  <script src="assets/js/calendar.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.BsvCalendar) {
+        BsvCalendar.mount('#bsv-calendar', { endpoint: 'api/events.php' });
+      }
+    });
+  </script>
+</body>
+</html>

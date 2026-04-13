@@ -73,10 +73,11 @@
   --r-lg: 16px;
   --r-pill: 999px;
 
-  /* Typography — EB Garamond is the free Google-Fonts revival of Adobe Garamond Pro,
-     the classic Orthodox serif used on patriarhia.ro. One serif stack for the whole site. */
-  --f-serif: 'EB Garamond', 'Adobe Garamond Pro', Garamond, Georgia, 'Times New Roman', serif;
-  --f-sans:  'EB Garamond', 'Adobe Garamond Pro', Garamond, Georgia, 'Times New Roman', serif;
+  /* Typography — Cardo: an Old-Style Garalde serif designed for classical,
+     liturgical, and scholarly typography. Excellent Romanian, Greek, and Hebrew
+     coverage. Only 400/400i/700 available — hierarchy built via size & italic. */
+  --f-serif: 'Cardo', 'Adobe Garamond Pro', Garamond, Georgia, 'Times New Roman', serif;
+  --f-sans:  'Cardo', 'Adobe Garamond Pro', Garamond, Georgia, 'Times New Roman', serif;
 
   /* Effects */
   --shadow-soft:   0 10px 30px rgba(0, 0, 0, 0.12);
@@ -111,8 +112,8 @@ html {
 
 body {
   font-family: var(--f-serif);
-  font-size: 17px;
-  line-height: 1.65;
+  font-size: 18px;
+  line-height: 1.7;
   color: var(--c-ink-text);
   background-color: var(--c-cream);
   -webkit-font-smoothing: antialiased;
@@ -456,9 +457,9 @@ address { font-style: normal; }
 .section-heading h2 {
   font-family: var(--f-serif);
   font-size: clamp(2rem, 3.6vw, 2.75rem);
-  line-height: 1.12;
-  letter-spacing: -0.01em;
-  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+  font-weight: 400;
   max-width: 22ch;
 }
 .section-heading--center { text-align: center; }
@@ -609,9 +610,9 @@ address { font-style: normal; }
 .hero__title {
   font-family: var(--f-serif);
   font-size: clamp(2.75rem, 7.2vw, 5.75rem);
-  line-height: 1.02;
-  letter-spacing: -0.025em;
-  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: 400;
   margin-bottom: var(--s-6);
 }
 .hero__title em {
@@ -1005,4 +1006,234 @@ address { font-style: normal; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+
+/* -----------------------------------------------------
+   18. PAGE-SPECIFIC COMPONENTS (despre, contact)
+   ----------------------------------------------------- */
+
+/* Compact hero variant — shorter, centered content for secondary pages */
+.hero--compact {
+  min-height: auto;
+  padding-top: calc(var(--header-h) + 5rem);
+  padding-bottom: var(--s-10);
+}
+.hero--compact .hero__inner {
+  min-height: auto;
+  grid-template-columns: 1fr;
+  text-align: center;
+  justify-items: center;
+}
+.hero__inner--center .hero__eyebrow,
+.hero__inner--center .hero__lead { margin-inline: auto; }
+.hero__inner--center .hero__eyebrow { justify-content: center; }
+.hero__inner--center .hero__eyebrow::before { display: none; }
+
+/* Timeline (istorie) */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  position: relative;
+  max-width: 860px;
+  margin-inline: auto;
+  padding-left: var(--s-6);
+}
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 9px;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent 0%, var(--c-gold) 8%, var(--c-gold) 92%, transparent 100%);
+  opacity: 0.35;
+}
+@media (min-width: 720px) {
+  .timeline { padding-left: var(--s-8); }
+  .timeline::before { left: 13px; }
+}
+
+.timeline__item {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-3);
+  position: relative;
+}
+.timeline__item::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--s-6) + 3px);
+  top: 10px;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--c-gold);
+  box-shadow: 0 0 0 4px var(--c-cream-2), 0 0 18px rgba(201,162,74,0.45);
+}
+@media (min-width: 720px) {
+  .timeline__item::before { left: calc(-1 * var(--s-8) + 7px); }
+}
+
+.timeline__year {
+  font-family: var(--f-serif);
+  font-size: clamp(1.75rem, 3.4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--c-gold);
+  line-height: 1;
+  margin-bottom: var(--s-2);
+}
+.timeline__title {
+  font-family: var(--f-serif);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--c-ink-text);
+  margin-bottom: var(--s-3);
+  letter-spacing: -0.005em;
+}
+.timeline__desc {
+  color: var(--c-ink-muted);
+  line-height: 1.75;
+  max-width: 60ch;
+}
+
+/* Clergy cards (despre.html) */
+.clergy-card {
+  background: var(--c-ink-2);
+  border: 1px solid var(--c-line-snow);
+  border-radius: var(--r-md);
+  padding: var(--s-8) var(--s-6) var(--s-7);
+  text-align: center;
+  transition: transform var(--t-smooth), border-color var(--t-smooth), box-shadow var(--t-smooth);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+}
+.clergy-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--c-line-dark);
+  box-shadow: var(--shadow-sacred);
+}
+.clergy-card__mark {
+  display: grid; place-items: center;
+  width: 72px; height: 72px;
+  border: 1px solid var(--c-gold);
+  border-radius: 50%;
+  color: var(--c-gold);
+  font-family: var(--f-serif);
+  font-size: 1.6rem;
+  margin-bottom: var(--s-4);
+  background: rgba(201, 162, 74, 0.06);
+}
+.clergy-card__role {
+  font-family: var(--f-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--c-gold);
+}
+.clergy-card__name {
+  font-family: var(--f-serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--c-snow);
+  letter-spacing: -0.005em;
+  margin-bottom: var(--s-2);
+}
+.clergy-card__bio {
+  color: var(--c-snow-muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  max-width: 30ch;
+}
+
+/* Final quote (despre.html closing) */
+.final-quote {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-6);
+  padding-block: var(--s-5);
+}
+.final-quote__mark {
+  display: grid; place-items: center;
+  width: 52px; height: 52px;
+  border: 1px solid var(--c-gold);
+  border-radius: 50%;
+  color: var(--c-gold);
+  font-family: var(--f-serif);
+  font-size: 1.3rem;
+}
+.final-quote__text {
+  font-family: var(--f-serif);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.35;
+  color: var(--c-snow);
+  max-width: 32ch;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+.final-quote__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+  justify-content: center;
+  margin-top: var(--s-3);
+}
+
+/* Service link cards (contact.html "slujiri") */
+.service-link {
+  background: var(--c-ink-2);
+  border: 1px solid var(--c-line-snow);
+  border-radius: var(--r-md);
+  padding: var(--s-7) var(--s-6);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-3);
+  transition: transform var(--t-smooth), border-color var(--t-smooth);
+}
+.service-link:hover {
+  transform: translateY(-3px);
+  border-color: var(--c-line-dark);
+}
+.service-link__icon {
+  width: 48px; height: 48px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--c-gold-soft);
+  color: var(--c-gold);
+  margin-bottom: var(--s-2);
+}
+.service-link__icon .material-symbols-outlined { font-size: 1.4rem; }
+.service-link__title {
+  font-family: var(--f-serif);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--c-snow);
+  letter-spacing: -0.005em;
+}
+.service-link__desc {
+  color: var(--c-snow-muted);
+  line-height: 1.65;
+  flex-grow: 1;
+  margin-bottom: var(--s-3);
+  font-size: 0.95rem;
+}
+
+/* Contact form */
+.contact-form {
+  background: var(--c-cream-2);
+  border: 1px solid var(--c-line-light);
+  border-radius: var(--r-md);
+  padding: clamp(1.75rem, 3vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  box-shadow: var(--shadow-card);
 }

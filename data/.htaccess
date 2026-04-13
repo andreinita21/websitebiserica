@@ -1,0 +1,2 @@
+# Never serve anything from this directory — it contains the SQLite database.
+Require all denied

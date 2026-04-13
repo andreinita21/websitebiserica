@@ -1,0 +1,4 @@
+# Prevent the shared layout partial from being served directly.
+<Files "_layout.php">
+  Require all denied
+</Files>
