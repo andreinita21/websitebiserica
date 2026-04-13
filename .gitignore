@@ -1,8 +1,9 @@
 .DS_Store
 
-# Local secrets & database — never commit
+# Local secrets — never commit
 /includes/config.local.php
-/data/*.db
+
+# SQLite sidecar files (the main .db is committed as shared content)
 /data/*.db-journal
 /data/*.db-wal
 /data/*.db-shm
