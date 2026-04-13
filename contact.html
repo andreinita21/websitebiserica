@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;500;700&amp;family=Public+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {error: "#ffb4ab", "on-surface": "#e5e2e1", "primary-fixed": "#ffe088", "on-tertiary-fixed-variant": "#4a4739", "on-tertiary": "#333024", "inverse-primary": "#735c00", "surface-container": "#201f1f", "surface-dim": "#131313", "on-error": "#690005", "surface-bright": "#393939", "on-primary-container": "#554300", "on-primary-fixed-variant": "#574500", "surface-variant": "#353534", surface: "#131313", "primary-container": "#d4af37", "secondary-container": "#f7ba00", "inverse-surface": "#e5e2e1", "on-tertiary-fixed": "#1e1c10", "on-surface-variant": "#d0c5af", "on-secondary-fixed-variant": "#5b4300", "on-error-container": "#ffdad6", "on-background": "#e5e2e1", secondary: "#ffdb93", "surface-tint": "#e9c349", outline: "#99907c", "surface-container-low": "#1c1b1b", "surface-container-highest": "#353534", "surface-container-lowest": "#0e0e0e", "inverse-on-surface": "#313030", "on-primary-fixed": "#241a00", "on-secondary-fixed": "#261a00", "tertiary-fixed-dim": "#ccc6b4", "tertiary-fixed": "#e9e2d0", "on-secondary": "#402d00", "tertiary-container": "#b8b3a2", "on-tertiary-container": "#484538", "on-primary": "#3c2f00", background: "#131313", "outline-variant": "#4d4635", "secondary-fixed-dim": "#fbbd04", primary: "#f2ca50", tertiary: "#d4cebc", "on-secondary-container": "#684c00", "error-container": "#93000a", "primary-fixed-dim": "#e9c349", "secondary-fixed": "#ffdf9f", "surface-container-high": "#2a2a2a"}, borderRadius: {DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem"}, fontFamily: {headline: ["Noto Serif"], body: ["Noto Serif"], label: ["Public Sans"], display: "Noto Serif"}}}};</script>
+<style>
+        body { background-color: #131313; color: #e5e2e1; font-family: 'Manrope', sans-serif; }
+        .font-serif { font-family: 'Noto Serif', serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-nav { background: rgba(19, 19, 19, 0.7); backdrop-filter: blur(24px); }
+        .gold-gradient { background: linear-gradient(135deg, #f2ca50 0%, #d4af37 100%); }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-container selection:text-on-primary-container">
+<nav class="fixed top-0 w-full flex justify-between items-center px-8 py-6 max-w-none z-50 bg-neutral-950/70 backdrop-blur-xl">
+<a href="index.html" class="text-2xl font-serif tracking-widest text-yellow-500 uppercase">Sfântul Vasile</a>
+<div class="hidden md:flex items-center space-x-8">
+<a class="text-stone-300 hover:text-yellow-200 transition-colors font-sans" href="index.html">Acasă</a>
+<a class="text-stone-300 hover:text-yellow-200 transition-colors font-sans" href="despre.html">Despre</a>
+<a class="text-stone-300 hover:text-yellow-200 transition-colors font-sans" href="index.html#program">Program</a>
+<a class="text-stone-300 hover:text-yellow-200 transition-colors font-sans" href="index.html#anunturi">Anunțuri</a>
+<a class="text-yellow-500 border-b-2 border-yellow-500/50 pb-1 font-sans" href="contact.html">Contact</a>
+</div>
+</nav>
+<main class="pt-32 pb-20">
+<section class="max-w-7xl mx-auto px-8 mb-32">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+<div class="lg:col-span-5">
+<h1 class="text-5xl md:text-7xl font-serif tracking-tight text-primary mb-8 leading-tight">Visit Us</h1>
+<p class="text-on-surface-variant text-lg mb-12 font-body max-w-md">
+                        Step into the sanctuary of Sfântul Vasile. Whether for prayer, liturgy, or quiet reflection, our doors are open to all who seek peace.
+                    </p>
+<div class="space-y-8 mb-12">
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-primary" data-icon="location_on">location_on</span>
+<div>
+<p class="font-headline text-lg text-on-surface">Address</p>
+<p class="text-on-surface-variant font-body">Strada Nicolae Titulescu, 100054 Ploiești, Prahova</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-primary" data-icon="mail">mail</span>
+<div>
+<p class="font-headline text-lg text-on-surface">Email</p>
+<p class="text-on-surface-variant font-body">contact@sfvasile.ro</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-primary" data-icon="call">call</span>
+<div>
+<p class="font-headline text-lg text-on-surface">Phone</p>
+<p class="text-on-surface-variant font-body">+40 722 000 000</p>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-8 rounded-lg border border-outline-variant/20">
+<h3 class="font-headline text-2xl text-primary mb-6">Send a Message</h3>
+<form class="space-y-6">
+<div>
+<label class="block text-xs uppercase tracking-widest text-on-surface-variant mb-2">Name</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/30 focus:ring-0 focus:border-primary transition-colors py-2 text-on-surface" placeholder="Your Name" type="text"/>
+</div>
+<div>
+<label class="block text-xs uppercase tracking-widest text-on-surface-variant mb-2">Email</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/30 focus:ring-0 focus:border-primary transition-colors py-2 text-on-surface" placeholder="email@address.com" type="email"/>
+</div>
+<div>
+<label class="block text-xs uppercase tracking-widest text-on-surface-variant mb-2">Message</label>
+<textarea class="w-full bg-transparent border-0 border-b border-outline-variant/30 focus:ring-0 focus:border-primary transition-colors py-2 text-on-surface" placeholder="How can we help you?" rows="3"></textarea>
+</div>
+<button class="w-full py-4 font-headline text-primary border border-primary/20 hover:bg-primary/5 transition-all uppercase tracking-widest text-sm">Send Inquiry</button>
+</form>
+</div>
+</div>
+<div class="lg:col-span-7 h-[600px] lg:h-[800px] sticky top-32">
+<div class="w-full h-full rounded-lg overflow-hidden bg-surface-container-high relative border border-outline-variant/10">
+<div class="absolute inset-0 bg-neutral-900/40 pointer-events-none"></div>
+<img class="w-full h-full object-cover grayscale opacity-60" data-alt="atmospheric architectural map of a historic city district in dark aesthetic with golden pin markers and soft lighting" data-location="Bucharest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbDBPumjxifde3NwLEQ3J6pDqrBzb51XTF22zinnVMuVZrn_QUKPcCfqHUmSC55bhWhpleeXHCK_MMrIuaVGCDXyaBfuK1xPUnOIBxFc8scDDka8BvdGklLfMlew3D8or3BarSU_b3JbE95lNE_HcpcrQ22cx1g4af1dC8Pwx8VUXnxDqO4bz34bdCX61zHamCp3X-j1EiMSyIGaRtYOzqg-mN0q2OI3Zg0m8FWq0X4J-r_PzywsA_Zir-WCMT4ZFuFP8a-oMQ_hdj"/>
+<div class="absolute bottom-8 left-8 right-8 bg-surface-dim/90 backdrop-blur-md p-6 border-l-4 border-primary">
+<p class="font-headline text-lg mb-1">Church Location</p>
+<p class="text-sm text-on-surface-variant">The intersection of history and faith. Visit us during Liturgy hours: Sun 09:00 - 12:00.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="bg-surface-container-low py-24">
+<div class="max-w-7xl mx-auto px-8">
+<div class="text-center mb-20">
+<span class="material-symbols-outlined text-primary text-4xl mb-4" data-icon="volunteer_activism">volunteer_activism</span>
+<h2 class="text-4xl md:text-5xl font-serif text-on-surface mb-6">Digital Offering</h2>
+<p class="text-on-surface-variant max-w-2xl mx-auto font-body">Your contributions sustain the spiritual and physical foundation of our community. Support our mission through a secure digital gift.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-20">
+<div class="bg-surface p-10 border border-outline-variant/10 group hover:border-primary/30 transition-all">
+<h4 class="font-headline text-primary mb-2 uppercase tracking-widest text-sm">Frequency</h4>
+<div class="flex gap-4 mb-8">
+<button class="flex-1 py-3 border border-primary text-primary text-xs font-bold uppercase tracking-widest bg-primary/5">One-time</button>
+<button class="flex-1 py-3 border border-outline-variant/30 text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:border-primary/50 transition-colors">Monthly</button>
+</div>
+<h4 class="font-headline text-primary mb-4 uppercase tracking-widest text-sm">Amount</h4>
+<div class="grid grid-cols-3 gap-2 mb-8">
+<button class="py-3 bg-surface-container-high text-on-surface hover:bg-primary hover:text-on-primary transition-all">$50</button>
+<button class="py-3 bg-surface-container-high text-on-surface hover:bg-primary hover:text-on-primary transition-all">$100</button>
+<button class="py-3 bg-surface-container-high text-on-surface hover:bg-primary hover:text-on-primary transition-all">$250</button>
+</div>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/30 focus:ring-0 focus:border-primary transition-colors py-3 text-on-surface mb-10 text-center text-2xl font-serif" placeholder="Custom $" type="text"/>
+<button class="w-full py-5 gold-gradient text-on-primary font-bold uppercase tracking-widest rounded shadow-xl shadow-primary/10 hover:scale-[1.01] transition-transform">Complete Donation</button>
+<div class="mt-8 flex justify-center items-center gap-4 opacity-40 grayscale">
+<span class="material-symbols-outlined" data-icon="credit_card">credit_card</span>
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+<span class="material-symbols-outlined" data-icon="lock">lock</span>
+</div>
+</div>
+<div class="lg:col-span-2 space-y-8">
+<div class="bg-surface p-10 border border-outline-variant/10 relative overflow-hidden">
+<div class="flex justify-between items-end mb-4">
+<div>
+<h4 class="font-headline text-2xl text-on-surface mb-1">Restoration of the Altar</h4>
+<p class="text-on-surface-variant text-sm">Preserving the 18th-century frescoes and woodwork.</p>
+</div>
+<span class="text-primary font-serif text-xl">74%</span>
+</div>
+<div class="w-full h-1 bg-surface-container-highest rounded-full mb-6">
+<div class="h-full gold-gradient rounded-full" style="width: 74%"></div>
+</div>
+<div class="flex justify-between text-xs uppercase tracking-widest text-on-surface-variant font-bold">
+<span>Raised: $45,000</span>
+<span>Goal: $60,000</span>
+</div>
+</div>
+<div class="bg-surface p-10 border border-outline-variant/10 relative overflow-hidden">
+<div class="flex justify-between items-end mb-4">
+<div>
+<h4 class="font-headline text-2xl text-on-surface mb-1">Community Soup Kitchen</h4>
+<p class="text-on-surface-variant text-sm">Providing 200 warm meals daily to those in need.</p>
+</div>
+<span class="text-primary font-serif text-xl">42%</span>
+</div>
+<div class="w-full h-1 bg-surface-container-highest rounded-full mb-6">
+<div class="h-full gold-gradient rounded-full" style="width: 42%"></div>
+</div>
+<div class="flex justify-between text-xs uppercase tracking-widest text-on-surface-variant font-bold">
+<span>Raised: $12,600</span>
+<span>Monthly Goal: $30,000</span>
+</div>
+</div>
+<div class="bg-surface-container-high p-8 border-l-4 border-primary">
+<div class="flex gap-6 items-center">
+<span class="material-symbols-outlined text-primary text-4xl" data-icon="shield_with_heart" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+<div>
+<h5 class="font-headline text-lg text-on-surface">Secure &amp; Transparent</h5>
+<p class="text-sm text-on-surface-variant">All donations are tax-deductible. We utilize industry-standard 256-bit encryption for every transaction.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<footer class="bg-stone-900 full-width py-16 px-8 mt-auto border-t border-outline-variant/10">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12 w-full max-w-7xl mx-auto">
+<div class="space-y-6">
+<div class="text-xl font-serif text-yellow-500 uppercase">Sf. Vasile</div>
+<p class="text-stone-400 font-sans Manrope text-sm leading-relaxed">
+                    Dedicated to the preservation of Byzantine tradition and the service of our local community through faith and charity.
+                </p>
+</div>
+<div>
+<h5 class="font-serif text-yellow-500 mb-6 uppercase tracking-wider text-sm">History</h5>
+<ul class="space-y-4 text-stone-400 font-sans Manrope text-sm">
+<li><a class="hover:text-yellow-500 transition-colors" href="#">Our Founders</a></li>
+<li><a class="hover:text-yellow-500 transition-colors" href="#">Archival Records</a></li>
+<li><a class="hover:text-yellow-500 transition-colors" href="#">The Iconography</a></li>
+</ul>
+</div>
+<div>
+<h5 class="font-serif text-yellow-500 mb-6 uppercase tracking-wider text-sm">Services</h5>
+<ul class="space-y-4 text-stone-400 font-sans Manrope text-sm">
+<li><a class="hover:text-yellow-500 transition-colors" href="#">Baptisms</a></li>
+<li><a class="hover:text-yellow-500 transition-colors" href="#">Weddings</a></li>
+<li><a class="hover:text-yellow-500 transition-colors" href="#">Prayer Requests</a></li>
+</ul>
+</div>
+<div>
+<h5 class="font-serif text-yellow-500 mb-6 uppercase tracking-wider text-sm">Contact</h5>
+<ul class="space-y-4 text-stone-400 font-sans Manrope text-sm">
+<li>Str. Nicolae Titulescu</li>
+<li>100054 Ploiești, Prahova</li>
+<li>+40 722 000 000</li>
+</ul>
+</div>
+</div>
+<div class="max-w-7xl mx-auto mt-16 pt-8 border-t border-stone-800 text-center">
+<p class="text-stone-500 text-xs font-sans Manrope">© Biserica Sfântul Vasile. All rights reserved.</p>
+</div>
+</footer>
+</body></html>
