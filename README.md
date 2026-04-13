@@ -112,11 +112,13 @@ the public API actually performs.
 
 ## 4. Running locally
 
-The project needs **PHP 7.4+ with `pdo_sqlite`**. Any recent PHP from
-Homebrew, XAMPP, or the built-in macOS version works.
+The project needs **PHP 7.4+ with `pdo_sqlite`**. Both extensions ship by
+default in the official PHP builds, so any recent distribution works.
+
+### macOS
 
 ```bash
-# macOS (Homebrew):
+# Install via Homebrew (https://brew.sh):
 brew install php
 
 # From the project root, start the built-in PHP server:
@@ -124,14 +126,74 @@ cd /Users/andrei/Desktop/BisericaSfVasile
 php -S localhost:8000
 ```
 
-Then:
+### Windows
+
+Choose **one** of the options below.
+
+**Option A — Official PHP binary (recommended, no extra software)**
+
+1. Open <https://windows.php.net/download/> and download the latest
+   **VS17 x64 Thread Safe** ZIP (e.g. `php-8.3.x-Win32-VS17-x64.zip`).
+2. Extract it to a simple path, e.g. `C:\php`.
+3. In that folder, make a copy of `php.ini-development` and rename it to
+   `php.ini`.
+4. Open `php.ini` in Notepad and make sure the following lines are **not**
+   commented out (remove a leading `;` if present):
+   ```ini
+   extension_dir = "ext"
+   extension=pdo_sqlite
+   extension=sqlite3
+   extension=mbstring
+   extension=openssl
+   ```
+5. Add `C:\php` to the system `PATH`:
+   *Start → "Edit the system environment variables" → Environment Variables →
+   Path → Edit → New → `C:\php` → OK.*
+6. Open a **new** PowerShell window and verify:
+   ```powershell
+   php --version
+   php -m | Select-String sqlite
+   ```
+7. Start the dev server from the project root:
+   ```powershell
+   cd C:\path\to\BisericaSfVasile
+   php -S localhost:8000
+   ```
+
+**Option B — XAMPP (everything bundled, GUI)**
+
+1. Download XAMPP from <https://www.apachefriends.org/> and install it
+   (PHP + Apache + SQLite come bundled).
+2. Copy the whole `BisericaSfVasile` folder into `C:\xampp\htdocs\`.
+3. Open *XAMPP Control Panel* → **Start** next to *Apache*.
+4. Visit <http://localhost/BisericaSfVasile/>.
+
+**Option C — WSL (use the Linux/macOS commands)**
+
+If you have Windows Subsystem for Linux, open an Ubuntu shell and run
+`sudo apt install php php-sqlite3`, then follow the macOS instructions.
+
+### Any platform — after the server is running
+
+Visit in a browser:
 
 - `http://localhost:8000/`              → homepage (loads `api/events.php`)
 - `http://localhost:8000/calendar.html` → public calendar
 - `http://localhost:8000/admin/login.php` → admin login
 
+Press **Ctrl + C** in the terminal to stop the server.
+
 The SQLite database is created automatically on the first request and seeded
 with four sample events so you can see the calendar populated immediately.
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---------|--------------|
+| `php: command not found` / `'php' is not recognized` | The PHP folder is not on `PATH`. Reopen the terminal after editing `PATH`. |
+| `could not find driver` when opening a page | `pdo_sqlite` / `sqlite3` extensions not enabled in `php.ini`. |
+| Admin page never loads the DB | The `data\` folder is read-only. Right-click → Properties → uncheck *Read-only*. |
+| Port 8000 is in use | Pick another port: `php -S localhost:8001`. |
 
 ### Default admin credentials
 
