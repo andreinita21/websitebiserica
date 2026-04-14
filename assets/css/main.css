@@ -659,12 +659,11 @@ address { font-style: normal; }
   padding: var(--s-2);
   border: 1px solid rgba(201, 162, 74, 0.35);
   border-radius: var(--r-md);
-  display: none;
+  display: block;
   justify-self: end;
   width: 100%;
   max-width: 420px;
 }
-@media (min-width: 1024px) { .hero__frame { display: block; } }
 .hero__frame::before {
   content: "";
   position: absolute;
@@ -707,6 +706,56 @@ address { font-style: normal; }
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--c-snow-muted);
+}
+
+/* — Hero mobile override — */
+@media (max-width: 768px) {
+  .hero { min-height: auto; }
+
+  .hero__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--s-7);
+    min-height: auto;
+    padding-top: var(--s-7);
+    padding-bottom: var(--s-7);
+  }
+
+  .hero__inner > div { text-align: center; width: 100%; }
+
+  .hero__lead { margin-inline: auto; }
+
+  .hero__actions { justify-content: center; }
+
+  .hero__meta { justify-content: center; }
+
+  .hero__frame {
+    display: block;
+    position: relative;
+    justify-self: center;
+    width: 85%;
+    max-width: 420px;
+    margin-top: 2rem;
+  }
+
+  .hero__frame::before { display: none; }
+
+  .hero__frame img {
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 4;
+  }
+
+  .hero__quote {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    max-width: none;
+    margin-top: var(--s-5);
+    text-align: center;
+  }
 }
 
 
