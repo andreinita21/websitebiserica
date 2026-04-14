@@ -835,6 +835,8 @@ address { font-style: normal; }
 }
 .announcement:last-child { border-bottom: 0; }
 
+.announcement--no-date { grid-template-columns: 1fr; }
+
 .announcement__date {
   display: flex;
   flex-direction: column;
@@ -860,6 +862,23 @@ address { font-style: normal; }
   margin-top: 4px;
   color: var(--c-snow-muted);
   font-family: var(--f-sans);
+}
+
+.announcement__date--interval { min-width: 104px; }
+.announcement__date--interval .range {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--f-serif);
+  color: var(--c-gold);
+  font-size: 1rem;
+  line-height: 1.15;
+}
+.announcement__date--interval .range__sep {
+  color: var(--c-snow-muted);
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 .announcement__body .tag {

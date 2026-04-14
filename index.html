@@ -139,6 +139,31 @@
       </div>
     </section>
 
+    <!-- ========== Anunțuri ========== -->
+    <section id="anunturi" class="section section--dark on-dark" aria-labelledby="anunturi-h">
+      <div class="container">
+        <div class="split-13">
+          <div class="reveal">
+            <span class="eyebrow mb-4">Viața parohiei</span>
+            <h2 id="anunturi-h"
+              style="font-family: var(--f-serif); font-size: clamp(2rem, 3.8vw, 3rem); line-height: 1.15; letter-spacing: -0.005em; font-weight: 400; max-width: 14ch; color: var(--c-snow);">
+              Anunțuri <em class="text-gradient-gold" style="font-style: italic;">importante</em>
+            </h2>
+            <span class="section-heading__rule" style="margin-top: var(--s-6);"></span>
+            <p class="mt-6" style="color: var(--c-snow-muted); max-width: 42ch; line-height: 1.7;">
+              Vești și cuvinte de la parohie — informații despre viața comunității și schimbări în program.
+            </p>
+          </div>
+
+          <div class="reveal delay-1" data-announcements data-limit="3" data-endpoint="api/announcements.php">
+            <p class="upcoming-events__empty">
+              Momentan nu există anunțuri noi.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ========== Intro ========== -->
     <section class="section section--cream" aria-labelledby="intro-h">
       <div class="container">
@@ -169,49 +194,6 @@
               <span>Citește istoria parohiei</span>
               <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
             </a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== Anunțuri ========== -->
-    <section id="anunturi" class="section section--dark on-dark" aria-labelledby="anunturi-h">
-      <div class="container">
-        <div class="split-13">
-          <div class="reveal">
-            <span class="eyebrow mb-4">Viața parohiei</span>
-            <h2 id="anunturi-h"
-              style="font-family: var(--f-serif); font-size: clamp(2rem, 3.8vw, 3rem); line-height: 1.15; letter-spacing: -0.005em; font-weight: 400; max-width: 14ch; color: var(--c-snow);">
-              Anunțuri <em class="text-gradient-gold" style="font-style: italic;">importante</em>
-            </h2>
-            <span class="section-heading__rule" style="margin-top: var(--s-6);"></span>
-            <p class="mt-6" style="color: var(--c-snow-muted); max-width: 42ch; line-height: 1.7;">
-              Evenimente, slujbe speciale și activități ale comunității noastre. Vă invităm să participați cu drag.
-            </p>
-            <a href="calendar.html" class="link-arrow mt-7" style="display: inline-flex; margin-top: var(--s-6);">
-              <span>Vezi calendarul complet</span>
-              <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-            </a>
-          </div>
-
-          <div class="reveal delay-1" data-upcoming-events data-limit="3" data-endpoint="api/events.php">
-            <!-- Upcoming events are populated dynamically by homepage-events.js.
-                 The static article below serves as fallback content if JavaScript
-                 or the PHP backend is not available. -->
-            <article class="announcement">
-              <div class="announcement__date" aria-hidden="true">
-                <span class="day">—</span>
-                <span class="month">—</span>
-              </div>
-              <div class="announcement__body">
-                <span class="tag">Calendar</span>
-                <h3 class="announcement__title">Consultați calendarul evenimentelor</h3>
-                <p class="announcement__desc">
-                  Programul complet al slujbelor și activităților parohiei este disponibil pe
-                  <a href="calendar.html" style="color: var(--c-gold);">pagina de calendar</a>.
-                </p>
-              </div>
-            </article>
           </div>
         </div>
       </div>
@@ -366,6 +348,7 @@
 
   <script src="assets/js/main.js" defer></script>
   <script src="assets/js/homepage-events.js" defer></script>
+  <script src="assets/js/homepage-announcements.js" defer></script>
 </body>
 
 </html>

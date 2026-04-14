@@ -64,7 +64,7 @@ $counts = bsv_db()->query(
 
 $csrf = bsv_csrf_token();
 
-bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, modificați sau eliminați evenimente.');
+bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, modificați sau eliminați evenimente.', null, 'events');
 ?>
 
 <div class="toolbar">

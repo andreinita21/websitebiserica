@@ -22,10 +22,22 @@ function bsv_flash_take(): ?array
     return $f;
 }
 
-function bsv_admin_header(string $title, string $subtitle = ''): void
+function bsv_admin_header(string $title, string $subtitle = '', ?string $actionsHtml = null, string $activeSection = 'events'): void
 {
     bsv_require_admin();
     $user = h($_SESSION['bsv_admin_user'] ?? 'Administrator');
+
+    if ($actionsHtml === null) {
+        $actionsHtml = '
+          <a href="index.php" class="adm-btn adm-btn--ghost">
+            <span class="material-symbols-outlined" aria-hidden="true">list</span>
+            <span>Lista evenimente</span>
+          </a>
+          <a href="event.php" class="adm-btn adm-btn--primary">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span>
+            <span>Adaugă eveniment</span>
+          </a>';
+    }
     ?><!DOCTYPE html>
 <html lang="ro">
 <head>
@@ -71,20 +83,24 @@ function bsv_admin_header(string $title, string $subtitle = ''): void
         </div>
       <?php endif; ?>
 
+      <nav class="admin-section-nav" aria-label="Secțiuni">
+        <a href="index.php" class="admin-section-nav__link <?= $activeSection === 'events' ? 'is-active' : '' ?>">
+          <span class="material-symbols-outlined" aria-hidden="true">event</span>
+          <span>Evenimente</span>
+        </a>
+        <a href="announcements.php" class="admin-section-nav__link <?= $activeSection === 'announcements' ? 'is-active' : '' ?>">
+          <span class="material-symbols-outlined" aria-hidden="true">campaign</span>
+          <span>Anunțuri</span>
+        </a>
+      </nav>
+
       <div class="admin-page-head">
         <div>
           <h1><?= h($title) ?></h1>
           <?php if ($subtitle !== ''): ?><p><?= h($subtitle) ?></p><?php endif; ?>
         </div>
         <div>
-          <a href="index.php" class="adm-btn adm-btn--ghost">
-            <span class="material-symbols-outlined" aria-hidden="true">list</span>
-            <span>Lista evenimente</span>
-          </a>
-          <a href="event.php" class="adm-btn adm-btn--primary">
-            <span class="material-symbols-outlined" aria-hidden="true">add</span>
-            <span>Adaugă eveniment</span>
-          </a>
+          <?= $actionsHtml ?>
         </div>
       </div>
 <?php

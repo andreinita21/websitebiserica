@@ -32,11 +32,40 @@ function bsv_db(): PDO
         $pdo->exec($schema);
     }
 
+    bsv_migrate_announcements_column($pdo);
+
     if ($freshInstall) {
         bsv_seed_sample_events($pdo);
     }
 
     return $pdo;
+}
+
+/**
+ * Reconcile the announcements table with the current schema. Older installs
+ * may have an older column layout; this brings them in line without losing
+ * data. Safe to run on every request — every step is idempotent.
+ */
+function bsv_migrate_announcements_column(PDO $pdo): void
+{
+    try {
+        $cols = $pdo->query('PRAGMA table_info(announcements)')->fetchAll();
+    } catch (Throwable $e) {
+        return;
+    }
+    $names = array_map(static fn($c) => (string)($c['name'] ?? ''), $cols);
+
+    // published_at → relevant_on (earlier naming)
+    if (in_array('published_at', $names, true) && !in_array('relevant_on', $names, true)) {
+        try { $pdo->exec('ALTER TABLE announcements RENAME COLUMN published_at TO relevant_on'); } catch (Throwable $e) {}
+    }
+
+    if (!in_array('relevant_until', $names, true)) {
+        try { $pdo->exec('ALTER TABLE announcements ADD COLUMN relevant_until TEXT'); } catch (Throwable $e) {}
+    }
+    if (!in_array('visible_days', $names, true)) {
+        try { $pdo->exec('ALTER TABLE announcements ADD COLUMN visible_days INTEGER'); } catch (Throwable $e) {}
+    }
 }
 
 function bsv_seed_sample_events(PDO $pdo): void
