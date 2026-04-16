@@ -1,6 +1,6 @@
 /* Biserica Sfântul Vasile — calendar widget (vanilla JS, no build step).
  *
- * Renders three views (month, week, list) from the events API.
+ * Renders two views (agenda list, week) from the events API.
  * Public API:
  *   BsvCalendar.mount(container, { endpoint })
  */
@@ -13,7 +13,6 @@
     'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'
   ];
   var MONTHS_SHORT = ['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','noi','dec'];
-  var WEEKDAYS_SHORT = ['Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm', 'Dum'];
   var WEEKDAYS_LONG = ['luni', 'marți', 'miercuri', 'joi', 'vineri', 'sâmbătă', 'duminică'];
 
   /* --- Date helpers (all local-time, no timezone surprises) ---------------- */
@@ -98,7 +97,7 @@
   function Calendar(host, options) {
     this.host = host;
     this.endpoint = (options && options.endpoint) || '/api/events.php';
-    this.view = 'month';            // 'month' | 'week' | 'list'
+    this.view = 'list';             // 'list' (agendă) | 'week' (săptămână)
     this.cursor = startOfMonth(new Date());
     this.cache = new Map();         // key: 'YYYY-MM' or 'listYYYY-MM' → events[]
     this.eventsByDate = new Map();  // key: 'YYYY-MM-DD' → events[]
@@ -124,7 +123,7 @@
 
     var views = el('div', { class: 'calendar__views', role: 'tablist', 'aria-label': 'Vizualizare calendar' });
     this.viewButtons = {};
-    [['month', 'Lună'], ['week', 'Săptămână'], ['list', 'Agenda']].forEach(function (pair) {
+    [['list', 'Agendă'], ['week', 'Săptămână']].forEach(function (pair) {
       var key = pair[0], label = pair[1];
       var btn = el('button', {
         class: 'calendar__view-btn' + (key === this.view ? ' is-active' : ''),
@@ -146,33 +145,10 @@
 
     this.body = el('div', { class: 'calendar__body' });
 
-    var legend = this._buildLegend();
-
     this.root.appendChild(toolbar);
     this.root.appendChild(this.body);
-    this.root.appendChild(legend);
 
     this.host.appendChild(this.root);
-  };
-
-  Calendar.prototype._buildLegend = function () {
-    var items = [
-      ['liturghie', 'Sfânta Liturghie'],
-      ['vecernie',  'Vecernie'],
-      ['praznic',   'Praznic'],
-      ['taina',     'Taină'],
-      ['catehetic', 'Cateheză'],
-      ['caritabil', 'Caritabil'],
-      ['eveniment', 'Eveniment']
-    ];
-    return el('div', { class: 'calendar-legend', 'aria-label': 'Legendă categorii' },
-      items.map(function (it) {
-        return el('span', { class: 'calendar-legend__item' }, [
-          el('span', { class: 'calendar-legend__swatch', 'data-cat': it[0] }),
-          it[1]
-        ]);
-      })
-    );
   };
 
   Calendar.prototype._setView = function (view) {
@@ -207,10 +183,8 @@
     // Update title
     if (this.view === 'week') {
       this.titleEl.textContent = fmtWeekTitle(startOfWeek(this.cursor));
-    } else if (this.view === 'list') {
-      this.titleEl.textContent = 'Agenda · ' + fmtMonthTitle(this.cursor);
     } else {
-      this.titleEl.textContent = fmtMonthTitle(this.cursor);
+      this.titleEl.textContent = 'Agendă · ' + fmtMonthTitle(this.cursor);
     }
 
     // Show a skeleton while loading
@@ -221,8 +195,7 @@
     ]));
 
     this._fetchRange().then(function () {
-      if (this.view === 'month') this._renderMonth();
-      else if (this.view === 'week') this._renderWeek();
+      if (this.view === 'week') this._renderWeek();
       else this._renderList();
     }.bind(this)).catch(function () {
       this.body.innerHTML = '';
@@ -235,9 +208,6 @@
   };
 
   Calendar.prototype._fetchRange = function () {
-    // For month & list we fetch the whole month; for week we fetch an
-    // extended 42-day window (enough for a month grid and its neighbours)
-    // and reuse across navigation.
     var from, to;
     if (this.view === 'week') {
       var wStart = startOfWeek(this.cursor);
@@ -246,11 +216,6 @@
     } else {
       from = startOfMonth(this.cursor);
       to   = addDays(addMonths(from, 1), -1);
-      // expand to fill grid with neighbouring days for month view
-      if (this.view === 'month') {
-        from = startOfWeek(from);
-        to   = addDays(startOfWeek(addDays(to, 7)), -1);
-      }
     }
     var key = isoDate(from) + '|' + isoDate(to);
     if (this.cache.has(key)) {
@@ -282,75 +247,6 @@
         return (a.start_time || '').localeCompare(b.start_time || '');
       });
     });
-  };
-
-  /* --- Month view --------------------------------------------------------- */
-  Calendar.prototype._renderMonth = function () {
-    var frag = el('div', { class: 'calendar__month', role: 'grid' });
-
-    WEEKDAYS_SHORT.forEach(function (w) {
-      frag.appendChild(el('div', { class: 'calendar__weekday', role: 'columnheader' }, w));
-    });
-
-    var first = startOfMonth(this.cursor);
-    var gridStart = startOfWeek(first);
-    var today = new Date();
-    var month = this.cursor.getMonth();
-
-    for (var i = 0; i < 42; i++) {
-      var day = addDays(gridStart, i);
-      var iso = isoDate(day);
-      var out = day.getMonth() !== month;
-      var cell = el('div', {
-        class: 'calendar__day'
-             + (out ? ' is-out' : '')
-             + (sameDay(day, today) ? ' is-today' : ''),
-        role: 'gridcell',
-        'data-date': iso,
-        tabindex: out ? '-1' : '0',
-        'aria-label': day.getDate() + ' ' + MONTHS[day.getMonth()] + ' ' + day.getFullYear()
-      }, [
-        el('span', { class: 'calendar__day-num' }, String(day.getDate()))
-      ]);
-
-      var events = this.eventsByDate.get(iso) || [];
-      if (events.length) {
-        var wrap = el('div', { class: 'calendar__events' });
-        var visible = events.slice(0, 3);
-        visible.forEach(function (ev) {
-          var pill = el('button', {
-            class: 'calendar__pill',
-            type: 'button',
-            'data-cat': ev.category,
-            'data-id': ev.id,
-            title: ev.title
-          }, [
-            ev.start_time ? el('span', { class: 'ev-time' }, fmtTime(ev.start_time) + ' · ') : null,
-            document.createTextNode(ev.title)
-          ]);
-          pill.addEventListener('click', this._openEvent.bind(this, ev));
-          wrap.appendChild(pill);
-        }, this);
-
-        if (events.length > visible.length) {
-          wrap.appendChild(el('span', { class: 'calendar__pill calendar__pill--more' },
-            '+' + (events.length - visible.length) + ' alte'));
-        }
-        cell.appendChild(wrap);
-      }
-
-      if (!out && events.length) {
-        cell.addEventListener('click', function (list, e) {
-          if (e.target.closest('.calendar__pill')) return;
-          this._openEvent(list[0]);
-        }.bind(this, events));
-      }
-
-      frag.appendChild(cell);
-    }
-
-    this.body.innerHTML = '';
-    this.body.appendChild(frag);
   };
 
   /* --- Week view ---------------------------------------------------------- */
