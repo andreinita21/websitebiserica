@@ -3,6 +3,9 @@
 # Local secrets — never commit
 /includes/config.local.php
 
+# Local IDE / assistant settings
+/.claude/
+
 # SQLite sidecar files (the main .db is committed as shared content)
 /data/*.db-journal
 /data/*.db-wal
