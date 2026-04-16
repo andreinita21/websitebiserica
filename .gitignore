@@ -3,7 +3,15 @@
 # Local secrets — never commit
 /includes/config.local.php
 
+# Local IDE / assistant settings
+/.claude/
+
 # SQLite sidecar files (the main .db is committed as shared content)
 /data/*.db-journal
 /data/*.db-wal
 /data/*.db-shm
+
+# User-uploaded gallery images — content belongs to the installation,
+# not to source control. Keep the folder via .gitkeep.
+/uploads/gallery/**
+!/uploads/gallery/.gitkeep

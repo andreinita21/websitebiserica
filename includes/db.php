@@ -32,11 +32,89 @@ function bsv_db(): PDO
         $pdo->exec($schema);
     }
 
+    bsv_migrate_announcements_column($pdo);
+    bsv_migrate_gallery($pdo);
+
     if ($freshInstall) {
         bsv_seed_sample_events($pdo);
+        bsv_seed_sample_gallery_categories($pdo);
     }
 
     return $pdo;
+}
+
+/**
+ * Ensure the gallery tables and their expected columns exist. Safe to run on
+ * every request — every step is idempotent. Useful for installs that existed
+ * before the gallery feature shipped.
+ */
+function bsv_migrate_gallery(PDO $pdo): void
+{
+    try {
+        $cols = $pdo->query('PRAGMA table_info(gallery_photos)')->fetchAll();
+    } catch (Throwable $e) {
+        return;
+    }
+    $names = array_map(static fn($c) => (string)($c['name'] ?? ''), $cols);
+    if (!$names) return;
+
+    foreach ([
+        'title'       => "ALTER TABLE gallery_photos ADD COLUMN title TEXT NOT NULL DEFAULT ''",
+        'file_hash'   => "ALTER TABLE gallery_photos ADD COLUMN file_hash TEXT",
+        'width'       => "ALTER TABLE gallery_photos ADD COLUMN width INTEGER",
+        'height'      => "ALTER TABLE gallery_photos ADD COLUMN height INTEGER",
+        'size_bytes'  => "ALTER TABLE gallery_photos ADD COLUMN size_bytes INTEGER",
+        'variants'    => "ALTER TABLE gallery_photos ADD COLUMN variants TEXT",
+        'position'    => "ALTER TABLE gallery_photos ADD COLUMN position INTEGER NOT NULL DEFAULT 0",
+        'is_published'=> "ALTER TABLE gallery_photos ADD COLUMN is_published INTEGER NOT NULL DEFAULT 1",
+    ] as $col => $sql) {
+        if (!in_array($col, $names, true)) {
+            try { $pdo->exec($sql); } catch (Throwable $e) {}
+        }
+    }
+}
+
+function bsv_seed_sample_gallery_categories(PDO $pdo): void
+{
+    $samples = [
+        ['Sfintele Slujbe', 'slujbe',    10],
+        ['Praznice',        'praznice',  20],
+        ['Comunitate',      'comunitate',30],
+        ['Biserica',        'biserica',  40],
+    ];
+    $stmt = $pdo->prepare(
+        'INSERT INTO gallery_categories (name, slug, position) VALUES (:n, :s, :p)'
+    );
+    foreach ($samples as [$n, $s, $p]) {
+        try { $stmt->execute([':n' => $n, ':s' => $s, ':p' => $p]); } catch (Throwable $e) {}
+    }
+}
+
+/**
+ * Reconcile the announcements table with the current schema. Older installs
+ * may have an older column layout; this brings them in line without losing
+ * data. Safe to run on every request — every step is idempotent.
+ */
+function bsv_migrate_announcements_column(PDO $pdo): void
+{
+    try {
+        $cols = $pdo->query('PRAGMA table_info(announcements)')->fetchAll();
+    } catch (Throwable $e) {
+        return;
+    }
+    $names = array_map(static fn($c) => (string)($c['name'] ?? ''), $cols);
+
+    // published_at → relevant_on (earlier naming)
+    if (in_array('published_at', $names, true) && !in_array('relevant_on', $names, true)) {
+        try { $pdo->exec('ALTER TABLE announcements RENAME COLUMN published_at TO relevant_on'); } catch (Throwable $e) {}
+    }
+
+    if (!in_array('relevant_until', $names, true)) {
+        try { $pdo->exec('ALTER TABLE announcements ADD COLUMN relevant_until TEXT'); } catch (Throwable $e) {}
+    }
+    if (!in_array('visible_days', $names, true)) {
+        try { $pdo->exec('ALTER TABLE announcements ADD COLUMN visible_days INTEGER'); } catch (Throwable $e) {}
+    }
 }
 
 function bsv_seed_sample_events(PDO $pdo): void

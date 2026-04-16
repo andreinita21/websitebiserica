@@ -34,11 +34,9 @@
 
       <nav class="nav" aria-label="Navigare principală">
         <a href="index.html" class="nav__link is-active">Acasă</a>
-        <a href="despre.html" class="nav__link">Despre</a>
-        <a href="#program" class="nav__link">Program</a>
         <a href="calendar.html" class="nav__link">Calendar</a>
-        <a href="#anunturi" class="nav__link">Anunțuri</a>
-        <a href="#vizita" class="nav__link">Vizitează-ne</a>
+        <a href="galerie.html" class="nav__link">Galerie</a>
+        <a href="despre.html" class="nav__link">Despre</a>
         <a href="contact.html" class="nav__link">Contact</a>
       </nav>
 
@@ -55,11 +53,9 @@
   <div id="mobile-menu" class="mobile-menu" data-mobile-menu>
     <nav class="mobile-menu__list" aria-label="Navigare mobilă">
       <a href="index.html" class="mobile-menu__link is-active">Acasă</a>
+      <a href="calendar.html" class="mobile-menu__link">Calendar</a>
+      <a href="galerie.html" class="mobile-menu__link">Galerie</a>
       <a href="despre.html" class="mobile-menu__link">Despre</a>
-      <a href="#program" class="mobile-menu__link">Program liturgic</a>
-      <a href="calendar.html" class="mobile-menu__link">Calendar evenimente</a>
-      <a href="#anunturi" class="mobile-menu__link">Anunțuri</a>
-      <a href="#vizita" class="mobile-menu__link">Vizitează-ne</a>
       <a href="contact.html" class="mobile-menu__link">Contact</a>
     </nav>
   </div>
@@ -104,10 +100,65 @@
       </div>
     </section>
 
+    <!-- ========== Program liturgic ========== -->
+    <section id="program" class="section section--cream-2" aria-labelledby="program-h">
+      <div class="container">
+        <div class="section-heading section-heading--center reveal">
+          <span class="eyebrow">Slujbe săptămânale</span>
+          <h2 id="program-h" style="margin-top: var(--s-4);">Program liturgic</h2>
+          <span class="section-heading__rule"></span>
+          <p class="lead text-center mx-auto mt-5" style="color: var(--c-ink-muted);">
+            Vă așteptăm cu inima deschisă la sfintele slujbe. Programul poate suferi mici ajustări în perioada
+            sărbătorilor — consultați anunțurile parohiei.
+          </p>
+        </div>
+
+        <div class="grid-cards reveal" data-upcoming-events data-variant="service-card" data-limit="3"
+          data-endpoint="api/events.php">
+          <p class="upcoming-events__empty" style="grid-column: 1 / -1; color: var(--c-ink-muted);">
+            Programul complet al slujbelor este disponibil pe
+            <a href="calendar.html" style="color: var(--c-gold);">pagina de calendar</a>.
+          </p>
+        </div>
+
+        <p class="text-center mt-7">
+          <a href="calendar.html" class="link-arrow">
+            <span>Vezi programul complet</span>
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+          </a>
+        </p>
+      </div>
+    </section>
+
     <!-- Ornament divider (gold line with Orthodox cross) -->
     <div class="divider-ornament" aria-hidden="true">
       <img src="assets/img/divider-ornament.svg" alt="" class="divider-ornament__svg">
     </div>
+
+    <!-- ========== Anunțuri ========== -->
+    <section id="anunturi" class="section section--dark on-dark" aria-labelledby="anunturi-h">
+      <div class="container">
+        <div class="split-13">
+          <div class="reveal">
+            <span class="eyebrow mb-4">Viața parohiei</span>
+            <h2 id="anunturi-h"
+              style="font-family: var(--f-serif); font-size: clamp(2rem, 3.8vw, 3rem); line-height: 1.15; letter-spacing: -0.005em; font-weight: 400; max-width: 14ch; color: var(--c-snow);">
+              Anunțuri <em class="text-gradient-gold" style="font-style: italic;">importante</em>
+            </h2>
+            <span class="section-heading__rule" style="margin-top: var(--s-6);"></span>
+            <p class="mt-6" style="color: var(--c-snow-muted); max-width: 42ch; line-height: 1.7;">
+              Vești și cuvinte de la parohie — informații despre viața comunității și schimbări în program.
+            </p>
+          </div>
+
+          <div class="reveal delay-1" data-announcements data-limit="3" data-endpoint="api/announcements.php">
+            <p class="upcoming-events__empty">
+              Momentan nu există anunțuri noi.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- ========== Intro ========== -->
     <section class="section section--cream" aria-labelledby="intro-h">
@@ -139,127 +190,6 @@
               <span>Citește istoria parohiei</span>
               <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
             </a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== Program liturgic ========== -->
-    <section id="program" class="section section--cream-2" aria-labelledby="program-h">
-      <div class="container">
-        <div class="section-heading section-heading--center reveal">
-          <span class="eyebrow">Slujbe săptămânale</span>
-          <h2 id="program-h" style="margin-top: var(--s-4);">Program liturgic</h2>
-          <span class="section-heading__rule"></span>
-          <p class="lead text-center mx-auto mt-5" style="color: var(--c-ink-muted);">
-            Vă așteptăm cu inima deschisă la sfintele slujbe. Programul poate suferi mici ajustări în perioada
-            sărbătorilor — consultați anunțurile parohiei.
-          </p>
-        </div>
-
-        <div class="grid-cards">
-          <article class="service-card reveal">
-            <div class="service-card__top">
-              <span class="service-card__num">01</span>
-              <span class="service-card__icon" aria-hidden="true">
-                <span class="material-symbols-outlined">church</span>
-              </span>
-            </div>
-            <h3 class="service-card__title">Sfanta Liturghie, Utrenia</h3>
-            <p class="service-card__desc">
-              Slujba de dimineață care ne trezește sufletul pentru Dumnezeu — o pregătire prin psalmi și cântări de
-              laudă pentru lumina care urmează să vină în timpul Sfintei Liturghii.
-            </p>
-            <div class="service-card__meta">
-              <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
-              <span>Miercuri · 08:00</span>
-            </div>
-          </article>
-
-          <article class="service-card reveal delay-1">
-            <div class="service-card__top">
-              <span class="service-card__num">02</span>
-              <span class="service-card__icon" aria-hidden="true">
-                <span class="material-symbols-outlined">nights_stay</span>
-              </span>
-            </div>
-            <h3 class="service-card__title">Sfanta Liturghie, Utrenia</h3>
-            <p class="service-card__desc">
-              Inima vieții noastre de creștini și momentul în care cerul se unește cu pământul — aducerea Jertfei
-              nesângeroase și unirea comunității cu Hristos prin Sfânta Împărtășanie.
-            </p>
-            <div class="service-card__meta">
-              <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
-              <span>Vineri · 8:00</span>
-            </div>
-          </article>
-
-          <article class="service-card reveal delay-2">
-            <div class="service-card__top">
-              <span class="service-card__num">03</span>
-              <span class="service-card__icon" aria-hidden="true">
-                <span class="material-symbols-outlined">auto_awesome</span>
-              </span>
-            </div>
-            <h3 class="service-card__title">Taina Sfântului Maslu</h3>
-            <p class="service-card__desc">
-              Rugăciunea de obște pentru tămăduirea sufletului și a trupului — o chemare a milei lui Dumnezeu peste cei
-              aflați în suferință, prin ungerea sfințită care aduce iertare, putere și alinare.
-            </p>
-            <div class="service-card__meta">
-              <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
-              <span>Vineri · 17:00</span>
-            </div>
-          </article>
-        </div>
-
-        <p class="text-center mt-7">
-          <a href="despre.html" class="link-arrow">
-            <span>Vezi programul complet</span>
-            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-          </a>
-        </p>
-      </div>
-    </section>
-
-    <!-- ========== Anunțuri ========== -->
-    <section id="anunturi" class="section section--dark on-dark" aria-labelledby="anunturi-h">
-      <div class="container">
-        <div class="split-13">
-          <div class="reveal">
-            <span class="eyebrow mb-4">Viața parohiei</span>
-            <h2 id="anunturi-h"
-              style="font-family: var(--f-serif); font-size: clamp(2rem, 3.8vw, 3rem); line-height: 1.15; letter-spacing: -0.005em; font-weight: 400; max-width: 14ch; color: var(--c-snow);">
-              Anunțuri <em class="text-gradient-gold" style="font-style: italic;">importante</em>
-            </h2>
-            <span class="section-heading__rule" style="margin-top: var(--s-6);"></span>
-            <p class="mt-6" style="color: var(--c-snow-muted); max-width: 42ch; line-height: 1.7;">
-              Evenimente, slujbe speciale și activități ale comunității noastre. Vă invităm să participați cu drag.
-            </p>
-            <a href="calendar.html" class="link-arrow mt-7" style="display: inline-flex; margin-top: var(--s-6);">
-              <span>Vezi calendarul complet</span>
-              <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-            </a>
-          </div>
-
-          <div class="reveal delay-1" data-upcoming-events data-limit="3" data-endpoint="api/events.php">
-            <!-- Upcoming events are populated dynamically by homepage-events.js.
-                 The static article below serves as fallback content if JavaScript
-                 or the PHP backend is not available. -->
-            <article class="announcement">
-              <div class="announcement__date" aria-hidden="true">
-                <span class="day">—</span>
-                <span class="month">—</span>
-              </div>
-              <div class="announcement__body">
-                <span class="tag">Calendar</span>
-                <h3 class="announcement__title">Consultați calendarul evenimentelor</h3>
-                <p class="announcement__desc">
-                  Programul complet al slujbelor și activităților parohiei este disponibil pe
-                  <a href="calendar.html" style="color: var(--c-gold);">pagina de calendar</a>.
-                </p>
-              </div>
-            </article>
           </div>
         </div>
       </div>
@@ -376,7 +306,8 @@
           <ul class="site-footer__list">
             <li><a href="index.html">Acasă</a></li>
             <li><a href="despre.html">Despre parohie</a></li>
-            <li><a href="#program">Program liturgic</a></li>
+            <li><a href="calendar.html">Calendar</a></li>
+            <li><a href="galerie.html">Galerie</a></li>
             <li><a href="#anunturi">Anunțuri</a></li>
           </ul>
         </div>
@@ -414,6 +345,7 @@
 
   <script src="assets/js/main.js" defer></script>
   <script src="assets/js/homepage-events.js" defer></script>
+  <script src="assets/js/homepage-announcements.js" defer></script>
 </body>
 
 </html>

@@ -10,6 +10,7 @@
   var MONTHS_SHORT = ['Ian', 'Feb', 'Mar', 'Apr', 'Mai', 'Iun', 'Iul', 'Aug', 'Sep', 'Oct', 'Noi', 'Dec'];
   var MONTHS_LONG  = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie',
                       'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
+  var WEEKDAYS     = ['Duminică', 'Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri', 'Sâmbătă'];
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function parseIso(s) {
@@ -37,10 +38,41 @@
 
   function renderEmpty(container) {
     container.innerHTML =
-      '<p class="upcoming-events__empty">' +
+      '<p class="upcoming-events__empty" style="grid-column: 1 / -1;">' +
         'Momentan nu există evenimente programate. ' +
         '<a href="calendar.html" style="color: var(--c-gold);">Vezi calendarul complet</a>.' +
       '</p>';
+  }
+
+  function renderServiceCards(container, events) {
+    if (!events || !events.length) {
+      renderEmpty(container);
+      return;
+    }
+
+    var html = events.map(function (ev) {
+      var d = parseIso(ev.date);
+      var timeLine = fmtTimeRange(ev.start_time, ev.end_time);
+      var weekday = d ? WEEKDAYS[d.getDay()] : '';
+      var datePart = d ? (d.getDate() + ' ' + MONTHS_LONG[d.getMonth()]) : '';
+      var metaLine = [weekday, datePart, timeLine].filter(Boolean).join(' · ');
+
+      var description = ev.description || '';
+      if (description.length > 220) description = description.slice(0, 217).trim() + '…';
+
+      return (
+        '<article class="service-card is-visible">' +
+          '<h3 class="service-card__title">' + escapeHtml(ev.title) + '</h3>' +
+          '<p class="service-card__desc">' + escapeHtml(description) + '</p>' +
+          '<div class="service-card__meta">' +
+            '<span class="material-symbols-outlined" aria-hidden="true">schedule</span>' +
+            '<span>' + escapeHtml(metaLine) + '</span>' +
+          '</div>' +
+        '</article>'
+      );
+    }).join('');
+
+    container.innerHTML = html;
   }
 
   function renderEvents(container, events) {
@@ -92,7 +124,10 @@
   function load(container) {
     var limit = parseInt(container.getAttribute('data-limit') || '3', 10);
     var endpoint = container.getAttribute('data-endpoint') || 'api/events.php';
+    var variant = container.getAttribute('data-variant') || 'announcement';
     var url = endpoint + '?upcoming=1&limit=' + encodeURIComponent(limit);
+
+    var renderer = variant === 'service-card' ? renderServiceCards : renderEvents;
 
     renderSkeleton(container);
 
@@ -102,7 +137,7 @@
         return r.json();
       })
       .then(function (data) {
-        renderEvents(container, (data && data.events) || []);
+        renderer(container, (data && data.events) || []);
       })
       .catch(function () {
         // Leave whatever static fallback was there before; if we already
