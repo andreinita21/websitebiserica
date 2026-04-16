@@ -33,6 +33,7 @@ function bsv_db(): PDO
     }
 
     bsv_migrate_announcements_column($pdo);
+    bsv_migrate_events_recurrence($pdo);
     bsv_migrate_gallery($pdo);
 
     if ($freshInstall) {
@@ -91,6 +92,29 @@ function bsv_seed_sample_gallery_categories(PDO $pdo): void
 }
 
 /**
+ * Add recurrence columns to older events tables that predate the feature.
+ * Idempotent — safe on every request.
+ */
+function bsv_migrate_events_recurrence(PDO $pdo): void
+{
+    try {
+        $cols = $pdo->query('PRAGMA table_info(events)')->fetchAll();
+    } catch (Throwable $e) {
+        return;
+    }
+    $names = array_map(static fn($c) => (string)($c['name'] ?? ''), $cols);
+    if (!$names) return;
+
+    if (!in_array('recurrence_type', $names, true)) {
+        try { $pdo->exec("ALTER TABLE events ADD COLUMN recurrence_type TEXT"); } catch (Throwable $e) {}
+    }
+    if (!in_array('recurrence_end_date', $names, true)) {
+        try { $pdo->exec("ALTER TABLE events ADD COLUMN recurrence_end_date TEXT"); } catch (Throwable $e) {}
+    }
+    try { $pdo->exec('CREATE INDEX IF NOT EXISTS idx_events_recurrence ON events(recurrence_type)'); } catch (Throwable $e) {}
+}
+
+/**
  * Reconcile the announcements table with the current schema. Older installs
  * may have an older column layout; this brings them in line without losing
  * data. Safe to run on every request — every step is idempotent.
@@ -129,6 +153,7 @@ function bsv_seed_sample_events(PDO $pdo): void
             'end'         => '11:30',
             'category'    => 'liturghie',
             'location'    => 'Altarul principal',
+            'recurrence'  => 'weekly',
         ],
         [
             'title'       => 'Vecernia de sâmbătă',
@@ -138,6 +163,7 @@ function bsv_seed_sample_events(PDO $pdo): void
             'end'         => '18:30',
             'category'    => 'vecernie',
             'location'    => 'Altarul principal',
+            'recurrence'  => 'weekly',
         ],
         [
             'title'       => 'Întâlnire catehetică pentru tineri',
@@ -147,6 +173,7 @@ function bsv_seed_sample_events(PDO $pdo): void
             'end'         => '20:30',
             'category'    => 'catehetic',
             'location'    => 'Sala parohială',
+            'recurrence'  => 'weekly',
         ],
         [
             'title'       => 'Campanie caritabilă — sprijin pentru familii',
@@ -156,23 +183,28 @@ function bsv_seed_sample_events(PDO $pdo): void
             'end'         => '18:00',
             'category'    => 'caritabil',
             'location'    => 'Sala catehetică',
+            'recurrence'  => null,
         ],
     ];
 
     $stmt = $pdo->prepare(
-        'INSERT INTO events (title, description, event_date, start_time, end_time, location, category, is_published)
-         VALUES (:title, :description, :event_date, :start_time, :end_time, :location, :category, 1)'
+        'INSERT INTO events (title, description, event_date, start_time, end_time, location, category,
+                             recurrence_type, recurrence_end_date, is_published)
+         VALUES (:title, :description, :event_date, :start_time, :end_time, :location, :category,
+                 :recurrence_type, :recurrence_end_date, 1)'
     );
 
     foreach ($samples as $s) {
         $stmt->execute([
-            ':title'       => $s['title'],
-            ':description' => $s['description'],
-            ':event_date'  => $today->modify('+' . $s['days_ahead'] . ' days')->format('Y-m-d'),
-            ':start_time'  => $s['start'],
-            ':end_time'    => $s['end'],
-            ':location'    => $s['location'],
-            ':category'    => $s['category'],
+            ':title'               => $s['title'],
+            ':description'         => $s['description'],
+            ':event_date'          => $today->modify('+' . $s['days_ahead'] . ' days')->format('Y-m-d'),
+            ':start_time'          => $s['start'],
+            ':end_time'            => $s['end'],
+            ':location'            => $s['location'],
+            ':category'            => $s['category'],
+            ':recurrence_type'     => $s['recurrence'],
+            ':recurrence_end_date' => null,
         ]);
     }
 }

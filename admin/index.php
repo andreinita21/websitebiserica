@@ -26,19 +26,28 @@ $allowedFilters = ['upcoming', 'past', 'drafts', 'all'];
 if (!in_array($filter, $allowedFilters, true)) $filter = 'upcoming';
 
 $sql = 'SELECT id, title, description, event_date, start_time, end_time, location,
-               category, is_published
+               category, recurrence_type, recurrence_end_date, is_published
         FROM events';
 $where = [];
 $params = [];
 
+// An event is "active/upcoming" if its anchor is in the future OR it is a
+// recurring series whose end date has not yet passed (or is open-ended).
+$activeClause = "(
+    (recurrence_type IS NULL AND event_date >= date('now','localtime'))
+    OR
+    (recurrence_type IS NOT NULL
+     AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now','localtime')))
+)";
+
 switch ($filter) {
     case 'upcoming':
         $where[] = 'is_published = 1';
-        $where[] = "event_date >= date('now','localtime')";
+        $where[] = $activeClause;
         break;
     case 'past':
         $where[] = 'is_published = 1';
-        $where[] = "event_date < date('now','localtime')";
+        $where[] = 'NOT ' . $activeClause;
         break;
     case 'drafts':
         $where[] = 'is_published = 0';
@@ -52,11 +61,20 @@ $stmt = bsv_db()->prepare($sql);
 $stmt->execute($params);
 $events = $stmt->fetchAll();
 
-// Stats for the header
+// Stats for the header. Recurring series count as "upcoming" as long as the
+// rule hasn't ended — mirror the $activeClause used for filtering.
 $counts = bsv_db()->query(
     "SELECT
-        SUM(CASE WHEN is_published = 1 AND event_date >= date('now','localtime') THEN 1 ELSE 0 END) AS upcoming,
-        SUM(CASE WHEN is_published = 1 AND event_date <  date('now','localtime') THEN 1 ELSE 0 END) AS past,
+        SUM(CASE WHEN is_published = 1 AND (
+                (recurrence_type IS NULL AND event_date >= date('now','localtime'))
+                OR (recurrence_type IS NOT NULL
+                    AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now','localtime')))
+            ) THEN 1 ELSE 0 END) AS upcoming,
+        SUM(CASE WHEN is_published = 1 AND NOT (
+                (recurrence_type IS NULL AND event_date >= date('now','localtime'))
+                OR (recurrence_type IS NOT NULL
+                    AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now','localtime')))
+            ) THEN 1 ELSE 0 END) AS past,
         SUM(CASE WHEN is_published = 0 THEN 1 ELSE 0 END) AS drafts,
         COUNT(*) AS total
      FROM events"
@@ -116,6 +134,13 @@ bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, m
         } else {
             $time = 'Toată ziua';
         }
+        $recType = (string)($e['recurrence_type'] ?? '');
+        $recLabels = [
+            'weekly'  => 'Săptămânal',
+            'monthly' => 'Lunar',
+            'yearly'  => 'Anual',
+        ];
+        $recLabel = $recLabels[$recType] ?? '';
       ?>
         <tr>
           <td class="col-date">
@@ -127,6 +152,12 @@ bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, m
           <td>
             <div class="title-cell">
               <strong><?= h($e['title']) ?></strong>
+              <?php if ($recLabel !== ''): ?>
+                <span style="display: inline-flex; align-items: center; gap: 4px; color: var(--c-gold-deep); font-weight: 600;">
+                  <span class="material-symbols-outlined" style="font-size: 1em; vertical-align: -2px;" aria-hidden="true">autorenew</span>
+                  <?= h($recLabel) ?><?php if (!empty($e['recurrence_end_date'])): ?> · până la <?= h(bsv_format_date_ro($e['recurrence_end_date'])) ?><?php endif; ?>
+                </span>
+              <?php endif; ?>
               <?php if (!empty($e['location'])): ?>
                 <span><span class="material-symbols-outlined" style="font-size: 1em; vertical-align: -2px;" aria-hidden="true">location_on</span> <?= h($e['location']) ?></span>
               <?php elseif (!empty($e['description'])): ?>

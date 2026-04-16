@@ -2,21 +2,25 @@
 -- Applied automatically by includes/db.php on the first request.
 
 CREATE TABLE IF NOT EXISTS events (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    title         TEXT    NOT NULL,
-    description   TEXT    NOT NULL DEFAULT '',
-    event_date    TEXT    NOT NULL,                  -- ISO date: YYYY-MM-DD
-    start_time    TEXT,                              -- HH:MM or NULL
-    end_time      TEXT,                              -- HH:MM or NULL
-    location      TEXT    NOT NULL DEFAULT '',
-    category      TEXT    NOT NULL DEFAULT 'liturghie',
-    is_published  INTEGER NOT NULL DEFAULT 1,        -- 0 draft, 1 public
-    created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now')),
-    updated_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now'))
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    title                 TEXT    NOT NULL,
+    description           TEXT    NOT NULL DEFAULT '',
+    event_date            TEXT    NOT NULL,                  -- ISO date: YYYY-MM-DD (anchor / first occurrence)
+    start_time            TEXT,                              -- HH:MM or NULL
+    end_time              TEXT,                              -- HH:MM or NULL
+    location              TEXT    NOT NULL DEFAULT '',
+    category              TEXT    NOT NULL DEFAULT 'liturghie',
+    recurrence_type       TEXT,                              -- NULL | 'weekly' | 'monthly' | 'yearly'
+    recurrence_end_date   TEXT,                              -- ISO date, inclusive; NULL = no end
+    is_published          INTEGER NOT NULL DEFAULT 1,        -- 0 draft, 1 public
+    created_at            TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now')),
+    updated_at            TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_events_date      ON events(event_date);
-CREATE INDEX IF NOT EXISTS idx_events_published ON events(is_published, event_date);
+CREATE INDEX IF NOT EXISTS idx_events_date       ON events(event_date);
+CREATE INDEX IF NOT EXISTS idx_events_published  ON events(is_published, event_date);
+-- idx_events_recurrence is created by bsv_migrate_events_recurrence() after
+-- the recurrence_type column is guaranteed to exist on legacy databases.
 
 CREATE TABLE IF NOT EXISTS announcements (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,

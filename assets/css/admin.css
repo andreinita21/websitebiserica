@@ -310,6 +310,137 @@ body.admin {
 
 
 /* -----------------------------------------------------
+   Recurrence date pickers — weekday circles + day-of-month grid
+   ----------------------------------------------------- */
+.rec-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.rec-picker[hidden] { display: none; }
+
+/* Weekly: row of 7 letter circles (L M M J V S D) */
+.rec-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.rec-weekday {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--c-cream-3);
+  background: var(--c-cream);
+  color: var(--c-ink-text);
+  font-family: var(--f-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t-smooth), border-color var(--t-smooth),
+              color var(--t-smooth), transform var(--t-smooth),
+              box-shadow var(--t-smooth);
+}
+
+.rec-weekday:hover {
+  border-color: var(--c-gold);
+  background: #FFFDF5;
+  transform: translateY(-1px);
+}
+
+.rec-weekday.is-selected {
+  background: var(--c-gold-deep);
+  border-color: var(--c-gold-deep);
+  color: var(--c-snow);
+  box-shadow: 0 6px 16px rgba(140, 110, 43, 0.28);
+}
+
+.rec-weekday:focus-visible {
+  outline: none;
+  border-color: var(--c-gold);
+  box-shadow: 0 0 0 4px var(--c-gold-soft);
+}
+
+/* Monthly: calendar-like grid of 1..31 circles */
+.rec-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(38px, 44px));
+  gap: 8px;
+  max-width: 420px;
+}
+
+.rec-mday {
+  appearance: none;
+  -webkit-appearance: none;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  border: 2px solid var(--c-cream-3);
+  background: var(--c-cream);
+  color: var(--c-ink-text);
+  font-family: var(--f-sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background var(--t-smooth), border-color var(--t-smooth),
+              color var(--t-smooth), transform var(--t-smooth);
+}
+
+.rec-mday:hover {
+  border-color: var(--c-gold);
+  background: #FFFDF5;
+  transform: translateY(-1px);
+}
+
+.rec-mday.is-selected {
+  background: var(--c-gold-deep);
+  border-color: var(--c-gold-deep);
+  color: var(--c-snow);
+  box-shadow: 0 4px 10px rgba(140, 110, 43, 0.22);
+}
+
+.rec-mday:focus-visible {
+  outline: none;
+  border-color: var(--c-gold);
+  box-shadow: 0 0 0 3px var(--c-gold-soft);
+}
+
+/* Yearly / none pickers use native inputs styled via existing .field rules,
+ * but they live inside .rec-picker so constrain width so the calendar input
+ * doesn't stretch the full 2-column grid. */
+.rec-picker input[type="date"] {
+  max-width: 260px;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font-family: var(--f-sans);
+  font-size: 0.98rem;
+  color: var(--c-ink-text);
+  background: var(--c-cream);
+  border: 1px solid var(--c-line-light);
+  border-radius: var(--r-md);
+  transition: border-color var(--t-smooth), box-shadow var(--t-smooth), background var(--t-smooth);
+}
+
+.rec-picker input[type="date"]:focus {
+  outline: none;
+  border-color: var(--c-gold);
+  background: #FFFDF5;
+  box-shadow: 0 0 0 4px var(--c-gold-soft);
+}
+
+
+/* -----------------------------------------------------
    Buttons (admin-specific, extend main.css patterns)
    ----------------------------------------------------- */
 .adm-btn {

@@ -125,7 +125,13 @@
     var limit = parseInt(container.getAttribute('data-limit') || '3', 10);
     var endpoint = container.getAttribute('data-endpoint') || 'api/events.php';
     var variant = container.getAttribute('data-variant') || 'announcement';
-    var url = endpoint + '?upcoming=1&limit=' + encodeURIComponent(limit);
+    var recurrence = container.getAttribute('data-recurrence') || '';
+    var distinct = container.getAttribute('data-distinct') === '1';
+
+    var params = ['upcoming=1', 'limit=' + encodeURIComponent(limit)];
+    if (recurrence) params.push('recurrence=' + encodeURIComponent(recurrence));
+    if (distinct) params.push('distinct=1');
+    var url = endpoint + '?' + params.join('&');
 
     var renderer = variant === 'service-card' ? renderServiceCards : renderEvents;
 

@@ -71,6 +71,105 @@ function bsv_valid_category(?string $raw): bool
     return is_string($raw) && array_key_exists($raw, APP_CATEGORIES);
 }
 
+const BSV_RECURRENCE_TYPES = ['weekly', 'monthly', 'yearly'];
+
+/** Valid recurrence type (or null / '' for one-off). */
+function bsv_valid_recurrence(?string $raw): bool
+{
+    if ($raw === null || $raw === '') return true;
+    return in_array($raw, BSV_RECURRENCE_TYPES, true);
+}
+
+/**
+ * Expand a single event row into concrete dated occurrences that fall within
+ * [$fromIso, $toIso] (inclusive). A non-recurring row yields at most one
+ * occurrence (its own event_date). A recurring row yields every occurrence
+ * within the window, bounded by recurrence_end_date if set.
+ *
+ * Each returned row is a copy of $event with event_date set to the occurrence
+ * date. Other fields (id, title, times, etc.) are left untouched — callers
+ * therefore see the same id across multiple occurrences of the same series.
+ */
+function bsv_expand_event_occurrences(array $event, string $fromIso, string $toIso): array
+{
+    $type    = $event['recurrence_type'] ?? null;
+    $anchor  = (string)($event['event_date'] ?? '');
+    $endRule = $event['recurrence_end_date'] ?? null;
+
+    if (!bsv_valid_date($anchor)) return [];
+    if (!bsv_valid_date($fromIso) || !bsv_valid_date($toIso)) return [];
+    if ($fromIso > $toIso) return [];
+
+    // Effective end-of-series is min(window end, rule end if set).
+    $effectiveTo = $toIso;
+    if (is_string($endRule) && $endRule !== '' && bsv_valid_date($endRule) && $endRule < $effectiveTo) {
+        $effectiveTo = $endRule;
+    }
+
+    // Non-recurring: include if anchor falls in the window.
+    if (!bsv_valid_recurrence($type) || $type === null || $type === '') {
+        if ($anchor >= $fromIso && $anchor <= $toIso) {
+            return [$event];
+        }
+        return [];
+    }
+
+    $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $anchor);
+    if (!$dt) return [];
+
+    $out    = [];
+    $safety = 5000;
+    while ($safety-- > 0) {
+        $iso = $dt->format('Y-m-d');
+        if ($iso > $effectiveTo) break;
+        if ($iso >= $fromIso) {
+            $instance = $event;
+            $instance['event_date'] = $iso;
+            $out[] = $instance;
+        }
+        $next = _bsv_advance_occurrence($dt, $anchor, (string)$type);
+        if ($next === null) break;
+        $dt = $next;
+    }
+    return $out;
+}
+
+/** Advance a recurrence cursor to the next valid occurrence. */
+function _bsv_advance_occurrence(DateTimeImmutable $current, string $anchorIso, string $type): ?DateTimeImmutable
+{
+    if ($type === 'weekly') {
+        return $current->modify('+7 days') ?: null;
+    }
+    if ($type === 'monthly') {
+        $day = (int)substr($anchorIso, 8, 2);
+        $y = (int)$current->format('Y');
+        $m = (int)$current->format('n');
+        // Walk forward up to 24 months looking for a month that contains the anchor day.
+        for ($i = 0; $i < 24; $i++) {
+            $m++;
+            if ($m > 12) { $m = 1; $y++; }
+            if (checkdate($m, $day, $y)) {
+                return DateTimeImmutable::createFromFormat('!Y-m-d', sprintf('%04d-%02d-%02d', $y, $m, $day)) ?: null;
+            }
+        }
+        return null;
+    }
+    if ($type === 'yearly') {
+        $month = (int)substr($anchorIso, 5, 2);
+        $day   = (int)substr($anchorIso, 8, 2);
+        $y = (int)$current->format('Y');
+        // Feb 29 falls only every ~4 years — walk up to 8 years just in case.
+        for ($i = 0; $i < 8; $i++) {
+            $y++;
+            if (checkdate($month, $day, $y)) {
+                return DateTimeImmutable::createFromFormat('!Y-m-d', sprintf('%04d-%02d-%02d', $y, $month, $day)) ?: null;
+            }
+        }
+        return null;
+    }
+    return null;
+}
+
 /** Send a JSON response and terminate. */
 function bsv_json($data, int $status = 200): void
 {
