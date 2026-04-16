@@ -1,0 +1,22 @@
+# Gallery uploads — only serve images. Everything else (including PHP) is denied.
+<FilesMatch "\.(jpe?g|png|webp|gif|avif|svg)$">
+  Require all granted
+</FilesMatch>
+<FilesMatch "\.(php|phtml|phar|ini|sh|cgi|pl|py|rb|js|html?)$">
+  Require all denied
+</FilesMatch>
+
+# Defense in depth: disable any handler mapping for this tree.
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
+<IfModule mod_rewrite.c>
+  RewriteEngine Off
+</IfModule>
+
+Options -Indexes -ExecCGI
+AddType image/jpeg .jpg .jpeg
+AddType image/png  .png
+AddType image/webp .webp
+AddType image/gif  .gif
+AddType image/avif .avif

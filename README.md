@@ -1,9 +1,9 @@
-# Biserica Sfântul Vasile — Calendar & event management
+# Biserica Sfântul Vasile — Calendar, announcements & gallery
 
 A lightweight, build-free PHP + SQLite extension to the existing static site.
 It adds a public calendar page, a protected admin area for managing events,
-and a dynamic upcoming-events block on the homepage. No `npm`, no bundlers,
-no frontend framework — everything is served directly.
+announcements, and a photo gallery, plus dynamic blocks on the homepage.
+No `npm`, no bundlers, no frontend framework — everything is served directly.
 
 ---
 
@@ -43,45 +43,61 @@ no frontend framework — everything is served directly.
 
 ```
 BisericaSfVasile/
-├── index.html                 # homepage (upcoming events block now dynamic)
-├── despre.html                # unchanged
-├── contact.html               # unchanged
-├── calendar.html              # NEW — public calendar page (month/week/list)
+├── index.html                 # homepage (upcoming events + announcements dynamic)
+├── despre.html
+├── contact.html
+├── calendar.html              # public calendar page (month/week/list)
+├── galerie.html               # NEW — public gallery page
 │
 ├── admin/
 │   ├── _layout.php            # shared header/footer for admin pages
 │   ├── index.php              # event list + delete
-│   ├── event.php              # create + edit form
+│   ├── event.php              # event create + edit form
+│   ├── announcements.php      # announcement list + delete
+│   ├── announcement.php       # announcement create + edit form
+│   ├── gallery.php            # NEW — photo list, upload, delete
+│   ├── gallery-photo.php      # NEW — edit photo title/description/categories
+│   ├── gallery-categories.php # NEW — CRUD on gallery categories
 │   ├── login.php              # authentication form
 │   ├── logout.php
 │   └── .htaccess              # blocks direct access to _layout.php
 │
 ├── api/
-│   └── events.php             # GET /api/events.php — JSON feed of published events
+│   ├── events.php             # JSON feed of published events
+│   ├── announcements.php      # JSON feed of active announcements
+│   └── gallery.php            # NEW — JSON feed of published photos + categories
+│
+├── uploads/                   # NEW — web-accessible image storage
+│   ├── .htaccess              # allow images only, disable PHP execution
+│   └── gallery/YYYY/MM/…      # auto-created by the uploader
 │
 ├── data/
 │   ├── events.db              # SQLite database (auto-created, gitignored)
 │   └── .htaccess              # deny all — protects the DB on Apache
 │
 ├── includes/
-│   ├── config.php             # paths, admin credentials, categories
+│   ├── config.php             # paths, admin credentials, event categories
 │   ├── config.local.example.php
 │   ├── config.local.php       # your overrides (gitignored)
-│   ├── db.php                 # PDO connection + schema install + seed
+│   ├── db.php                 # PDO connection + schema install + seed + migrations
 │   ├── auth.php               # session, CSRF, bcrypt login
 │   ├── helpers.php            # sanitisation + Romanian date formatting
-│   ├── schema.sql             # CREATE TABLE statements
+│   ├── gallery.php            # NEW — upload validation, slug helpers, queries
+│   ├── schema.sql             # CREATE TABLE statements (events + announcements + gallery)
 │   └── .htaccess              # deny all — no direct access to PHP partials
 │
 └── assets/
     ├── css/
-    │   ├── main.css           # (existing) global design system
-    │   ├── calendar.css       # NEW — calendar widget + homepage loader
-    │   └── admin.css          # NEW — admin UI
+    │   ├── main.css           # global design system
+    │   ├── calendar.css       # calendar widget + homepage loader
+    │   ├── gallery.css        # NEW — grid, filter chips, lightbox
+    │   └── admin.css          # admin UI (now covers gallery too)
     └── js/
-        ├── main.js            # (existing) header/menu/reveal
-        ├── calendar.js        # NEW — custom vanilla calendar (no CDN)
-        └── homepage-events.js # NEW — loads next 3 upcoming events
+        ├── main.js            # header/menu/reveal
+        ├── calendar.js        # custom vanilla calendar (no CDN)
+        ├── gallery.js         # NEW — filter + FLIP animation + lightbox
+        ├── homepage-announcements.js
+        └── homepage-events.js
 ```
 
 ---
@@ -297,7 +313,61 @@ fallback stays visible.
 
 ---
 
-## 10. Extending the system
+## 10. How the photo gallery works
+
+- **Database tables** (`includes/schema.sql`):
+  - `gallery_categories` — `(id, name, slug, position, …)`. Slugs are
+    auto-ASCII-ified from the Romanian name if not provided.
+  - `gallery_photos` — `(id, title, description, file_path, width, height,
+    mime_type, size_bytes, is_published, position, …)`.
+  - `gallery_photo_categories` — many-to-many pivot with `ON DELETE CASCADE`
+    on both sides.
+- **Storage**: images land under `uploads/gallery/YYYY/MM/<sha256-prefix>.<ext>`.
+  The file name is derived from the file's content hash so re-uploading the
+  same bytes deduplicates automatically. `uploads/.htaccess` forbids PHP
+  execution and only serves image MIME types.
+- **Admin UI** (`admin/gallery.php`):
+  - Drag-and-drop upload zone with live previews (supports multiple files).
+  - Optional title, description, categories and publish state are applied to
+    every file uploaded in one submission, then editable per-photo later.
+  - Category filter bar above the photo grid for quick triage.
+  - Per-photo `admin/gallery-photo.php` to change metadata and categories
+    without re-uploading.
+  - `admin/gallery-categories.php` manages categories (create / rename /
+    reorder / delete). Deleting a category cascades to remove its pivot rows
+    — photos are preserved.
+- **Public page** (`galerie.html` + `assets/js/gallery.js`):
+  - CSS-columns masonry grid, responsive from one to four columns.
+  - Filter chips animated with a FLIP (First-Last-Invert-Play) technique so
+    items smoothly slide into their new positions on category change.
+  - Lightbox with dimmed blur backdrop, keyboard navigation (←/→/Esc), swipe
+    gestures on touch devices, and preload of neighbouring photos.
+  - All visible text honours `prefers-reduced-motion`.
+- **API** (`api/gallery.php`): `GET ?category=<slug>&limit=<n>` — returns
+  `{ categories, photos }`. Only categories with at least one published
+  photo are returned, keeping the filter bar free of empty chips.
+
+### Uploading images from the admin UI
+
+1. Sign in to `admin/login.php`.
+2. Open **Galerie** → **Gestionează categoriile** and add at least one
+   category (e.g. *Slujbe*, *Praznice*, *Comunitate*).
+3. Back on **Galerie**, drop photos onto the upload card (or click to pick).
+4. Fill the optional title/description, tick the categories that apply,
+   and submit.
+5. The photos now appear on `galerie.html` immediately.
+
+### File-size / format limits
+
+- Max **100 MB per image** (configurable in `includes/gallery.php` via
+  `APP_GALLERY_MAX_BYTES`). Make sure your PHP `upload_max_filesize` and
+  `post_max_size` are at least as high, otherwise PHP rejects the upload
+  before the app sees it.
+- Accepted MIME types: JPEG, PNG, WebP, GIF, AVIF (the server re-sniffs the
+  uploaded file with `finfo` and refuses anything else).
+
+
+## 11. Extending the system
 
 - **Add a category**: edit `APP_CATEGORIES` in `includes/config.php`. New keys
   must stay lowercase/ASCII. Update colour accents in `calendar.css` and

@@ -7,3 +7,8 @@
 /data/*.db-journal
 /data/*.db-wal
 /data/*.db-shm
+
+# User-uploaded gallery images — content belongs to the installation,
+# not to source control. Keep the folder via .gitkeep.
+/uploads/gallery/**
+!/uploads/gallery/.gitkeep

@@ -92,6 +92,10 @@ function bsv_admin_header(string $title, string $subtitle = '', ?string $actions
           <span class="material-symbols-outlined" aria-hidden="true">campaign</span>
           <span>Anunțuri</span>
         </a>
+        <a href="gallery.php" class="admin-section-nav__link <?= $activeSection === 'gallery' ? 'is-active' : '' ?>">
+          <span class="material-symbols-outlined" aria-hidden="true">photo_library</span>
+          <span>Galerie</span>
+        </a>
       </nav>
 
       <div class="admin-page-head">
@@ -113,7 +117,8 @@ function bsv_admin_footer(): void
 
     <footer class="admin-footer">
       Biserica Sfântul Vasile · Interfață de administrare
-      · <a href="../calendar.html" target="_blank" rel="noopener">Vezi calendarul public</a>
+      · <a href="../calendar.html" target="_blank" rel="noopener">Calendar</a>
+      · <a href="../galerie.html" target="_blank" rel="noopener">Galerie</a>
     </footer>
   </div>
 </body>
