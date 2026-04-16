@@ -265,6 +265,76 @@
     return null;
   }
 
+  // Preferred order for <source type="..."> — smallest-format first so the
+  // browser picks the most efficient encoder it supports.
+  var FORMAT_PRIORITY = ['image/avif', 'image/webp', 'image/jpeg', 'image/png'];
+
+  function buildSrcset(list) {
+    // list: [{url, w, h, bytes}, ...]  sorted ascending by width (API does it)
+    return list
+      .filter(function (v) { return v && v.url && v.w; })
+      .map(function (v) { return v.url + ' ' + v.w + 'w'; })
+      .join(', ');
+  }
+
+  function pickFallbackVariant(variants, prefMime) {
+    // Choose a mid-sized variant (≥800w) in the preferred fallback mime
+    // to use as the <img src>. Defaults to the largest available, or the
+    // original if no variants exist for that format.
+    var list = variants && variants[prefMime];
+    if (!list || !list.length) return null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].w >= 800) return list[i];
+    }
+    return list[list.length - 1];
+  }
+
+  function buildPicture(p) {
+    var variants = p.variants || {};
+    var sizes = p.sizes || '(min-width: 1200px) 25vw, (min-width: 860px) 33vw, (min-width: 560px) 50vw, 100vw';
+
+    var pic = document.createElement('picture');
+
+    // One <source> per known format, in priority order.
+    FORMAT_PRIORITY.forEach(function (mime) {
+      var list = variants[mime];
+      if (!list || !list.length) return;
+      var src = buildSrcset(list);
+      if (!src) return;
+      var source = document.createElement('source');
+      source.type = mime;
+      source.srcset = src;
+      source.sizes = sizes;
+      pic.appendChild(source);
+    });
+
+    var img = document.createElement('img');
+    img.className = 'gallery-tile__image';
+    img.alt = p.title || (p.description ? trim(p.description, 90) : 'Fotografie din galerie');
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    if (p.width)  img.width  = p.width;
+    if (p.height) img.height = p.height;
+
+    // Fallback src + srcset: pick JPEG/PNG variants if we have them, else
+    // fall back to the original (unresized) file. Browsers that don't
+    // understand srcset simply use `src`.
+    var fallbackVariants = variants['image/jpeg'] || variants['image/png'];
+    if (fallbackVariants && fallbackVariants.length) {
+      img.srcset = buildSrcset(fallbackVariants);
+      img.sizes = sizes;
+      var pick = pickFallbackVariant(variants, 'image/jpeg')
+              || pickFallbackVariant(variants, 'image/png')
+              || fallbackVariants[fallbackVariants.length - 1];
+      img.src = pick ? pick.url : p.url;
+    } else {
+      img.src = p.url;
+    }
+
+    pic.appendChild(img);
+    return pic;
+  }
+
   function buildTile(p) {
     var li = document.createElement('li');
     li.className = 'gallery-item';
@@ -277,16 +347,7 @@
       (p.title || 'Fotografie') + ' — deschide vizualizarea completă');
     btn.addEventListener('click', function () { openLightbox(p.id); });
 
-    var img = document.createElement('img');
-    img.className = 'gallery-tile__image';
-    img.src = p.url;
-    img.alt = p.title || (p.description ? trim(p.description, 90) : 'Fotografie din galerie');
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    if (p.width)  img.width  = p.width;
-    if (p.height) img.height = p.height;
-
-    btn.appendChild(img);
+    btn.appendChild(buildPicture(p));
 
     if (p.title || (p.categories && p.categories.length)) {
       var overlay = document.createElement('div');
@@ -471,10 +532,15 @@
     lb.figure.style.opacity = '0';
     lb.figure.style.transform = 'translate3d(' + (direction === -1 ? -14 : direction === 1 ? 14 : 0) + 'px,0,0) scale(0.985)';
 
-    // Preload before swapping
+    // Pick the best-sized variant for the lightbox: roughly the viewport
+    // width, scaled by device pixel ratio. Fall back to the original if
+    // the photo has no variants or none large enough.
+    var url = pickLightboxUrl(photo);
+
+    // Preload before swapping to avoid an unstyled flash.
     var loader = new Image();
     loader.onload = function () {
-      lb.img.src = photo.url;
+      lb.img.src = url;
       lb.img.alt = photo.title || photo.description || 'Fotografie';
       if (photo.width)  lb.img.width  = photo.width;
       if (photo.height) lb.img.height = photo.height;
@@ -484,7 +550,7 @@
         lb.figure.style.opacity = '1';
       });
     };
-    loader.src = photo.url;
+    loader.src = url;
 
     if (photo.title) {
       lb.title.textContent = photo.title;
@@ -516,8 +582,26 @@
     [items[(idx + 1) % items.length], items[(idx - 1 + items.length) % items.length]]
       .forEach(function (id) {
         var n = lookupPhoto(id);
-        if (n && n.url) { var i = new Image(); i.src = n.url; }
+        if (n) { var i = new Image(); i.src = pickLightboxUrl(n); }
       });
+  }
+
+  function pickLightboxUrl(photo) {
+    var variants = photo.variants || {};
+    var viewport = (window.innerWidth || 1200) * (window.devicePixelRatio || 1);
+
+    // Prefer WebP → AVIF → JPEG → PNG, first >= viewport width.
+    var order = ['image/webp', 'image/avif', 'image/jpeg', 'image/png'];
+    for (var i = 0; i < order.length; i++) {
+      var list = variants[order[i]];
+      if (!list || !list.length) continue;
+      for (var j = 0; j < list.length; j++) {
+        if (list[j].w >= viewport) return list[j].url;
+      }
+      // Else take the largest one available in that format.
+      return list[list.length - 1].url;
+    }
+    return photo.url;
   }
 
   /* -------------------------------------------------

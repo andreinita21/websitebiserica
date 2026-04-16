@@ -83,19 +83,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
         if ($categoryIds) {
             bsv_gallery_set_photo_categories($photoId, $categoryIds);
         }
+
+        // Generate responsive variants automatically. A failure here must not
+        // abort the upload — the original still works — so we just collect
+        // any message and surface it to the admin.
+        $variantResult = bsv_gallery_generate_variants($photoId);
+        if ($variantResult['status'] === 'error') {
+            $errors[] = ($file['name'] ?? 'imagine') . ' (variante): ' . $variantResult['message'];
+        }
+
         $saved++;
     }
 
     if ($saved > 0 && !$errors) {
         bsv_flash_set('success', $saved === 1
-            ? 'Fotografia a fost adăugată.'
-            : "$saved fotografii au fost adăugate.");
+            ? 'Fotografia a fost adăugată și optimizată.'
+            : "$saved fotografii au fost adăugate și optimizate.");
     } elseif ($saved > 0 && $errors) {
         bsv_flash_set('info', "$saved fotografii salvate. Erori: " . implode(' · ', $errors));
     } else {
         bsv_flash_set('error', 'Nu am putut salva: ' . implode(' · ', $errors));
     }
 
+    header('Location: gallery.php');
+    exit;
+}
+
+// --- Batch regenerate handler ---------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'regenerate_all') {
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        bsv_flash_set('error', 'Sesiunea a expirat. Încercați din nou.');
+    } else {
+        $force = !empty($_POST['force']);
+        $res = bsv_gallery_regenerate_all($force);
+        bsv_flash_set(
+            'success',
+            sprintf(
+                'Optimizare finalizată: %d procesate (%d reușite, %d sărite, %d erori).',
+                $res['processed'], $res['ok'], $res['skipped'], $res['errors']
+            )
+        );
+    }
     header('Location: gallery.php');
     exit;
 }
@@ -111,6 +139,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
             $stmt->execute([':id' => $id]);
             $row = $stmt->fetch();
             if ($row) {
+                // Remove resized variants first (their paths live in the DB row).
+                bsv_gallery_delete_variant_files($id);
                 $pdo->prepare('DELETE FROM gallery_photos WHERE id = :id')->execute([':id' => $id]);
                 bsv_gallery_delete_file((string)$row['file_path']);
                 bsv_flash_set('success', 'Fotografia a fost ștearsă.');
@@ -125,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 $filterCat = isset($_GET['cat']) ? (int)$_GET['cat'] : 0;
 
 $sql = 'SELECT p.id, p.title, p.description, p.file_path, p.width, p.height,
-               p.is_published, p.created_at
+               p.variants, p.is_published, p.created_at
         FROM gallery_photos p';
 $params = [];
 if ($filterCat > 0) {
@@ -161,11 +191,14 @@ $categories = bsv_gallery_all_categories();
 
 $counts = $pdo->query(
     "SELECT
-        COUNT(*)                                             AS total,
-        SUM(CASE WHEN is_published = 1 THEN 1 ELSE 0 END)    AS published,
-        SUM(CASE WHEN is_published = 0 THEN 1 ELSE 0 END)    AS drafts
+        COUNT(*)                                                                AS total,
+        SUM(CASE WHEN is_published = 1 THEN 1 ELSE 0 END)                       AS published,
+        SUM(CASE WHEN is_published = 0 THEN 1 ELSE 0 END)                       AS drafts,
+        SUM(CASE WHEN variants IS NULL OR variants = '' THEN 1 ELSE 0 END)      AS unoptimized
      FROM gallery_photos"
 )->fetch();
+
+$imgCaps = bsv_gallery_image_support();
 
 $csrf = bsv_csrf_token();
 
@@ -272,8 +305,47 @@ bsv_admin_header(
       </a>
     <?php endforeach; ?>
   </div>
-  <div style="font-size: 0.82rem; color: var(--c-ink-muted);">
-    <?= (int)($counts['published'] ?? 0) ?> publicate · <?= (int)($counts['drafts'] ?? 0) ?> ciorne
+  <div style="display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap;">
+    <span style="font-size: 0.82rem; color: var(--c-ink-muted);">
+      <?= (int)($counts['published'] ?? 0) ?> publicate · <?= (int)($counts['drafts'] ?? 0) ?> ciorne
+      <?php if ((int)($counts['unoptimized'] ?? 0) > 0): ?>
+        · <strong style="color: var(--c-gold-deep);"><?= (int)$counts['unoptimized'] ?> neoptimizate</strong>
+      <?php endif; ?>
+    </span>
+    <?php if ((int)($counts['total'] ?? 0) > 0 && $imgCaps['gd']): ?>
+      <details class="regen-menu">
+        <summary class="adm-btn adm-btn--ghost adm-btn--sm" role="button">
+          <span class="material-symbols-outlined" aria-hidden="true">auto_fix_high</span>
+          <span>Optimizare</span>
+        </summary>
+        <div class="regen-menu__sheet">
+          <form method="post" action="gallery.php" class="regen-menu__form">
+            <input type="hidden" name="action" value="regenerate_all">
+            <input type="hidden" name="_token" value="<?= h($csrf) ?>">
+            <button type="submit" class="regen-menu__item">
+              <span class="material-symbols-outlined" aria-hidden="true">bolt</span>
+              <span>
+                <strong>Optimizează doar cele noi</strong>
+                <small>Procesează fotografiile fără variante.</small>
+              </span>
+            </button>
+          </form>
+          <form method="post" action="gallery.php" class="regen-menu__form"
+                onsubmit="return confirm('Regenerați variantele pentru TOATE fotografiile? Poate dura câteva minute.');">
+            <input type="hidden" name="action" value="regenerate_all">
+            <input type="hidden" name="force" value="1">
+            <input type="hidden" name="_token" value="<?= h($csrf) ?>">
+            <button type="submit" class="regen-menu__item regen-menu__item--warn">
+              <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+              <span>
+                <strong>Regenerează tot</strong>
+                <small>Șterge variantele existente și le recreează.</small>
+              </span>
+            </button>
+          </form>
+        </div>
+      </details>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -287,13 +359,27 @@ bsv_admin_header(
   <div class="admin-gallery-grid">
     <?php foreach ($photos as $p):
       $cats = $photoCategories[(int)$p['id']] ?? [];
+      $pVariants = bsv_gallery_decode_variants($p['variants'] ?? null);
+      // Pick the smallest WebP ≥ 400px for the admin thumbnail.
+      $thumbSrc = $p['file_path'];
+      foreach ($pVariants as $v) {
+        if (($v['fmt'] ?? '') === 'webp' && (int)($v['w'] ?? 0) >= 400) {
+          $thumbSrc = $v['path'];
+          break;
+        }
+      }
     ?>
       <article class="admin-photo-card">
         <a class="admin-photo-card__thumb" href="gallery-photo.php?id=<?= (int)$p['id'] ?>" aria-label="Editează fotografia">
-          <img src="../<?= h($p['file_path']) ?>" alt="<?= h($p['title'] ?: 'Fotografie din galerie') ?>"
+          <img src="../<?= h($thumbSrc) ?>" alt="<?= h($p['title'] ?: 'Fotografie din galerie') ?>"
                loading="lazy" width="<?= (int)$p['width'] ?>" height="<?= (int)$p['height'] ?>">
           <?php if ((int)$p['is_published'] === 0): ?>
             <span class="admin-photo-card__badge">Ciornă</span>
+          <?php endif; ?>
+          <?php if (!$pVariants): ?>
+            <span class="admin-photo-card__badge admin-photo-card__badge--warn"
+                  style="right: 10px; left: auto; background: var(--c-gold); color: var(--c-ink);"
+                  title="Fotografia nu are variante optimizate — folosiți „Optimizare”.">Neoptimizat</span>
           <?php endif; ?>
         </a>
         <div class="admin-photo-card__body">

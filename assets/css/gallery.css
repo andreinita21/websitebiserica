@@ -142,6 +142,7 @@
 }
 .gallery-tile:focus-visible { box-shadow: 0 0 0 4px var(--c-gold-soft), 0 20px 42px rgba(14,14,16,0.14); }
 
+.gallery-tile picture { display: block; width: 100%; }
 .gallery-tile__image {
   display: block;
   width: 100%;

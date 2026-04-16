@@ -64,6 +64,7 @@ function bsv_migrate_gallery(PDO $pdo): void
         'width'       => "ALTER TABLE gallery_photos ADD COLUMN width INTEGER",
         'height'      => "ALTER TABLE gallery_photos ADD COLUMN height INTEGER",
         'size_bytes'  => "ALTER TABLE gallery_photos ADD COLUMN size_bytes INTEGER",
+        'variants'    => "ALTER TABLE gallery_photos ADD COLUMN variants TEXT",
         'position'    => "ALTER TABLE gallery_photos ADD COLUMN position INTEGER NOT NULL DEFAULT 0",
         'is_published'=> "ALTER TABLE gallery_photos ADD COLUMN is_published INTEGER NOT NULL DEFAULT 1",
     ] as $col => $sql) {

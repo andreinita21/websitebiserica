@@ -41,7 +41,7 @@ try {
     )->fetchAll();
 
     $sql = 'SELECT p.id, p.title, p.description, p.file_path, p.mime_type,
-                   p.width, p.height, p.position, p.created_at
+                   p.width, p.height, p.variants, p.position, p.created_at
               FROM gallery_photos p';
     $params = [];
     if ($categorySlug !== '') {
@@ -89,6 +89,26 @@ try {
 }
 
 $photos = array_map(static function (array $r) use ($photoCats): array {
+    $variantsRaw = bsv_gallery_decode_variants($r['variants'] ?? null);
+
+    // Group variants by MIME type so the front-end can emit one <source>
+    // per modern format (WebP, AVIF) plus a final <img> fallback.
+    $byMime = [];
+    foreach ($variantsRaw as $v) {
+        $mime = (string)($v['mime'] ?? 'image/webp');
+        $byMime[$mime][] = [
+            'w'     => (int)($v['w'] ?? 0),
+            'h'     => (int)($v['h'] ?? 0),
+            'url'   => (string)($v['path'] ?? ''),
+            'bytes' => (int)($v['bytes'] ?? 0),
+        ];
+    }
+    // Sort each group ascending by width so the browser can pick intelligently.
+    foreach ($byMime as &$list) {
+        usort($list, static fn($a, $b) => $a['w'] <=> $b['w']);
+    }
+    unset($list);
+
     return [
         'id'          => (int)$r['id'],
         'title'       => (string)$r['title'],
@@ -97,6 +117,8 @@ $photos = array_map(static function (array $r) use ($photoCats): array {
         'mime_type'   => (string)$r['mime_type'],
         'width'       => $r['width'] !== null ? (int)$r['width']  : null,
         'height'      => $r['height'] !== null ? (int)$r['height'] : null,
+        'variants'    => $byMime,    // { "image/webp": [...], "image/jpeg": [...] }
+        'sizes'       => APP_GALLERY_SIZES_ATTR,
         'categories'  => $photoCats[(int)$r['id']] ?? [],
         'created_at'  => (string)$r['created_at'],
     ];

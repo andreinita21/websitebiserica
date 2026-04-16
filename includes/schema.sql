@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS gallery_photos (
     width       INTEGER,
     height      INTEGER,
     size_bytes  INTEGER,
+    variants    TEXT,                                  -- JSON array of responsive renditions (webp + fallback)
     position    INTEGER NOT NULL DEFAULT 0,            -- manual ordering within gallery
     is_published INTEGER NOT NULL DEFAULT 1,           -- 0 draft / 1 public
     created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now')),

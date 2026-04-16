@@ -32,6 +32,22 @@ $data = [
 ];
 $errors = [];
 
+// Regenerate variants for this single photo.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'regenerate') {
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        bsv_flash_set('error', 'Sesiunea a expirat. Încercați din nou.');
+    } else {
+        $res = bsv_gallery_generate_variants($id);
+        if ($res['status'] === 'error') {
+            bsv_flash_set('error', 'Regenerare eșuată: ' . $res['message']);
+        } else {
+            bsv_flash_set('success', 'Variante regenerate: ' . $res['count'] . '.');
+        }
+    }
+    header('Location: gallery-photo.php?id=' . $id);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!bsv_csrf_check($_POST['_token'] ?? null)) {
         $errors['_csrf'] = 'Sesiunea a expirat. Reîncărcați pagina.';
@@ -97,10 +113,20 @@ bsv_admin_header(
   </div>
 <?php endif; ?>
 
-<form method="post" class="admin-card gallery-edit" action="gallery-photo.php?id=<?= (int)$id ?>" novalidate>
+<?php
+  $variants = bsv_gallery_decode_variants($photo['variants'] ?? null);
+  $variantBytes = array_sum(array_map(static fn($v) => (int)($v['bytes'] ?? 0), $variants));
+  $byFmt = [];
+  foreach ($variants as $v) {
+      $fmt = (string)($v['fmt'] ?? 'webp');
+      $byFmt[$fmt][] = (int)($v['w'] ?? 0);
+  }
+?>
+
+<section class="admin-card gallery-edit">
   <div class="admin-card__head">
-    <h2>Detalii fotografie</h2>
-    <p>Imaginea este afișată așa cum apare pe pagina publică.</p>
+    <h2>Imagine și variante</h2>
+    <p>Fișierul original plus versiunile optimizate folosite pe pagina publică.</p>
   </div>
 
   <div class="gallery-edit__grid">
@@ -118,8 +144,50 @@ bsv_admin_header(
       </figcaption>
     </figure>
 
-    <div class="gallery-edit__fields">
-      <div class="form-grid">
+    <div class="gallery-edit__variants">
+      <div class="gallery-edit__variants-head">
+        <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+        <strong>Variante responsive</strong>
+        <?php if ($variants): ?>
+          <span class="variants-badge variants-badge--ok"><?= count($variants) ?> fișiere · <?= number_format($variantBytes / 1024, 0, ',', '.') ?> KB</span>
+        <?php else: ?>
+          <span class="variants-badge variants-badge--warn">Niciuna</span>
+        <?php endif; ?>
+      </div>
+      <?php if ($byFmt): ?>
+        <ul class="gallery-edit__variants-list">
+          <?php foreach ($byFmt as $fmt => $widths): sort($widths); ?>
+            <li>
+              <span class="variants-fmt"><?= h(strtoupper($fmt)) ?></span>
+              <span><?= h(implode(' · ', array_map(static fn($w) => $w . 'px', $widths))) ?></span>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php else: ?>
+        <p class="hint" style="margin-top: 6px;">
+          Creați versiuni optimizate în WebP/AVIF (și o copie redimensionată în formatul original ca
+          rezervă). Pagina publică va încărca imaginea potrivită pentru fiecare ecran.
+        </p>
+      <?php endif; ?>
+      <form method="post" action="gallery-photo.php?id=<?= (int)$id ?>" class="gallery-edit__variants-actions">
+        <input type="hidden" name="action" value="regenerate">
+        <input type="hidden" name="_token" value="<?= h($csrf) ?>">
+        <button type="submit" class="adm-btn adm-btn--ghost adm-btn--sm">
+          <span class="material-symbols-outlined" aria-hidden="true">auto_fix_high</span>
+          <span><?= $variants ? 'Regenerează variantele' : 'Generează variantele' ?></span>
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<form method="post" class="admin-card" action="gallery-photo.php?id=<?= (int)$id ?>" novalidate>
+  <div class="admin-card__head">
+    <h2>Detalii fotografie</h2>
+    <p>Titlu, descriere, categorii și stare de publicare.</p>
+  </div>
+
+  <div class="form-grid">
         <div class="field field-full">
           <label for="title">Titlu</label>
           <input type="text" id="title" name="title" maxlength="180"
@@ -162,8 +230,6 @@ bsv_admin_header(
                  <?= $data['is_published'] === 1 ? 'checked' : '' ?>>
           <label for="is_published">Publică fotografia (vizibilă pe pagina publică de galerie)</label>
         </div>
-      </div>
-    </div>
   </div>
 
   <input type="hidden" name="_token" value="<?= h($csrf) ?>">

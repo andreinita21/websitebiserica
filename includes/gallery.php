@@ -30,6 +30,38 @@ if (!defined('APP_GALLERY_ALLOWED_MIME')) {
     ]);
 }
 
+/* ---- Responsive variants configuration ------------------------------------
+ *
+ * Each uploaded photo is automatically processed into several smaller
+ * renditions so the browser can pick the smallest one that fits the layout
+ * and the device pixel ratio. Any width greater than or equal to the
+ * original image width is skipped (we never upscale).
+ *
+ * The `sizes` attribute used on the public page matches the CSS-columns
+ * masonry: at 1200px+ we show 4 columns → each tile is ~25vw, etc.
+ */
+if (!defined('APP_GALLERY_VARIANT_WIDTHS')) {
+    define('APP_GALLERY_VARIANT_WIDTHS', [400, 800, 1200, 1600, 2000]);
+}
+if (!defined('APP_GALLERY_WEBP_QUALITY')) {
+    define('APP_GALLERY_WEBP_QUALITY', 82);
+}
+if (!defined('APP_GALLERY_JPEG_QUALITY')) {
+    define('APP_GALLERY_JPEG_QUALITY', 84);
+}
+if (!defined('APP_GALLERY_AVIF_QUALITY')) {
+    // AVIF at quality 55 is roughly comparable to WebP q82 in perceived
+    // quality but often 25–35% smaller. Encoding is expensive though, so
+    // it's only attempted when GD exposes `imageavif`.
+    define('APP_GALLERY_AVIF_QUALITY', 55);
+}
+if (!defined('APP_GALLERY_SIZES_ATTR')) {
+    define(
+        'APP_GALLERY_SIZES_ATTR',
+        '(min-width: 1200px) 25vw, (min-width: 860px) 33vw, (min-width: 560px) 50vw, 100vw'
+    );
+}
+
 /** ASCII-slugify a category name. Romanian diacritics → plain letters. */
 function bsv_gallery_slugify(string $input): string
 {
@@ -216,4 +248,296 @@ function bsv_gallery_all_categories(): array
     return bsv_db()
         ->query('SELECT id, name, slug, position FROM gallery_categories ORDER BY position ASC, name ASC')
         ->fetchAll();
+}
+
+
+/* ============================================================================
+ * IMAGE OPTIMIZATION — responsive renditions
+ *
+ * After a photo is uploaded we generate several smaller copies in modern
+ * formats (WebP always, AVIF when GD supports it, plus a resized original-
+ * format copy) and remember what we produced in the `variants` column.
+ *
+ * The public page then assembles a <picture> element so each visitor's
+ * browser downloads only the smallest file that fits their viewport and
+ * device pixel ratio. This typically cuts transfer by 70–90 % on phones.
+ * ========================================================================== */
+
+/** Capability flags for the image stack available on this host. */
+function bsv_gallery_image_support(): array
+{
+    return [
+        'gd'   => extension_loaded('gd') && function_exists('imagecreatetruecolor'),
+        'jpeg' => function_exists('imagejpeg'),
+        'png'  => function_exists('imagepng'),
+        'webp' => function_exists('imagewebp') && function_exists('imagecreatefromwebp'),
+        'avif' => function_exists('imageavif') && function_exists('imagecreatefromavif'),
+        'gif'  => function_exists('imagegif')  && function_exists('imagecreatefromgif'),
+        'exif' => function_exists('exif_read_data'),
+    ];
+}
+
+/** Load an image from disk for the given MIME. Returns GdImage|false. */
+function bsv_gallery_gd_load(string $path, string $mime)
+{
+    switch ($mime) {
+        case 'image/jpeg': return function_exists('imagecreatefromjpeg') ? @imagecreatefromjpeg($path) : false;
+        case 'image/png':  return function_exists('imagecreatefrompng')  ? @imagecreatefrompng($path)  : false;
+        case 'image/webp': return function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false;
+        case 'image/gif':  return function_exists('imagecreatefromgif')  ? @imagecreatefromgif($path)  : false;
+        case 'image/avif': return function_exists('imagecreatefromavif') ? @imagecreatefromavif($path) : false;
+    }
+    return false;
+}
+
+/** Respect JPEG EXIF orientation so portraits aren't resized sideways. */
+function bsv_gallery_gd_apply_orientation($img, string $path, string $mime)
+{
+    if ($mime !== 'image/jpeg' || !function_exists('exif_read_data')) return $img;
+    $exif = @exif_read_data($path);
+    if (!$exif || empty($exif['Orientation'])) return $img;
+    switch ((int)$exif['Orientation']) {
+        case 3: return imagerotate($img, 180, 0) ?: $img;
+        case 6: return imagerotate($img, -90, 0) ?: $img;
+        case 8: return imagerotate($img,  90, 0) ?: $img;
+    }
+    return $img;
+}
+
+/** Resize a GD image to the given width, preserving aspect ratio. Destroys src. */
+function bsv_gallery_gd_resize($src, int $targetWidth, bool $preserveAlpha)
+{
+    $sw = imagesx($src); $sh = imagesy($src);
+    if ($sw <= $targetWidth) return $src;
+    $ratio = $targetWidth / $sw;
+    $dw = $targetWidth;
+    $dh = max(1, (int) round($sh * $ratio));
+
+    $dst = imagecreatetruecolor($dw, $dh);
+    if ($preserveAlpha) {
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+        imagefilledrectangle($dst, 0, 0, $dw, $dh, $transparent);
+    }
+    imagecopyresampled($dst, $src, 0, 0, 0, 0, $dw, $dh, $sw, $sh);
+    imagedestroy($src);
+    return $dst;
+}
+
+/** Save a GD image to disk in the chosen format. Returns bytes written or 0 on failure. */
+function bsv_gallery_gd_save($img, string $fmt, string $path): int
+{
+    $ok = false;
+    switch ($fmt) {
+        case 'webp': $ok = function_exists('imagewebp') && @imagewebp($img, $path, APP_GALLERY_WEBP_QUALITY); break;
+        case 'avif': $ok = function_exists('imageavif') && @imageavif($img, $path, APP_GALLERY_AVIF_QUALITY); break;
+        case 'jpeg': $ok = function_exists('imagejpeg') && @imagejpeg($img, $path, APP_GALLERY_JPEG_QUALITY); break;
+        case 'png':  $ok = function_exists('imagepng')  && @imagepng($img, $path, 6);                        break;
+    }
+    if (!$ok) return 0;
+    @chmod($path, 0664);
+    return (int) (@filesize($path) ?: 0);
+}
+
+/**
+ * Produce responsive variants for the given photo. Writes resized files
+ * next to the original and updates the `variants` JSON column. Safe to
+ * re-run: existing variant files for this photo are removed first.
+ *
+ * Returns:
+ *   [ 'status' => 'ok' | 'skipped' | 'error',
+ *     'count'  => int,
+ *     'message'=> string ]
+ */
+function bsv_gallery_generate_variants(int $photoId): array
+{
+    $pdo  = bsv_db();
+    $stmt = $pdo->prepare('SELECT id, file_path, mime_type FROM gallery_photos WHERE id = :id');
+    $stmt->execute([':id' => $photoId]);
+    $row = $stmt->fetch();
+    if (!$row) return ['status' => 'error', 'count' => 0, 'message' => 'Fotografie negăsită.'];
+
+    $caps = bsv_gallery_image_support();
+    if (!$caps['gd']) {
+        return ['status' => 'skipped', 'count' => 0, 'message' => 'Extensia GD nu este disponibilă.'];
+    }
+
+    $root = realpath(__DIR__ . '/..');
+    if ($root === false) return ['status' => 'error', 'count' => 0, 'message' => 'Rădăcina site-ului nu a putut fi rezolvată.'];
+    $src = $root . '/' . ltrim((string)$row['file_path'], '/');
+    if (!is_file($src)) {
+        return ['status' => 'error', 'count' => 0, 'message' => 'Fișierul original lipsește.'];
+    }
+
+    // Clear previous variants — both the files and the DB record — so we can
+    // re-emit a consistent set.
+    bsv_gallery_delete_variant_files($photoId);
+    $pdo->prepare('UPDATE gallery_photos SET variants = NULL WHERE id = :id')
+        ->execute([':id' => $photoId]);
+
+    $mime = (string)$row['mime_type'];
+
+    // Processing a multi-megapixel JPEG through GD is memory-hungry. Bump
+    // the limit temporarily; fall back gracefully if ini_set is disabled.
+    $prevMem = ini_get('memory_limit');
+    @ini_set('memory_limit', '512M');
+    @set_time_limit(120);
+
+    // Some GD encoders (notably libavif on certain builds) print progress
+    // info directly to stdout, breaking subsequent header() calls in the
+    // caller. Capture anything they emit for the whole processing run.
+    ob_start();
+
+    // Load once to measure dimensions (accounting for EXIF rotation).
+    $probe = bsv_gallery_gd_load($src, $mime);
+    if (!$probe) {
+        ob_end_clean();
+        @ini_set('memory_limit', (string)$prevMem);
+        return ['status' => 'error', 'count' => 0, 'message' => 'Nu am putut decoda imaginea (' . $mime . ').'];
+    }
+    $probe = bsv_gallery_gd_apply_orientation($probe, $src, $mime);
+    $origW = imagesx($probe);
+    $origH = imagesy($probe);
+    imagedestroy($probe);
+
+    // Work out which output formats are worth producing.
+    $preserveAlpha = in_array($mime, ['image/png', 'image/webp', 'image/gif', 'image/avif'], true);
+    $formats = [];
+    if ($caps['webp']) $formats[] = 'webp';
+    if ($caps['avif']) $formats[] = 'avif';
+
+    // Fallback format for browsers without WebP/AVIF support.
+    $fallbackFmt = null;
+    $fallbackExt = null;
+    $fallbackMime = null;
+    switch ($mime) {
+        case 'image/png':
+            if ($caps['png'])  { $fallbackFmt = 'png';  $fallbackExt = 'png'; $fallbackMime = 'image/png'; }
+            break;
+        case 'image/webp':
+            // If the original is already WebP, skip the "original-format" fallback:
+            // everyone that can't decode WebP won't be able to decode it regardless,
+            // and we'd only duplicate bytes.
+            break;
+        case 'image/gif':
+        case 'image/jpeg':
+        case 'image/avif':
+        default:
+            if ($caps['jpeg']) { $fallbackFmt = 'jpeg'; $fallbackExt = 'jpg'; $fallbackMime = 'image/jpeg'; }
+            break;
+    }
+    if ($fallbackFmt) $formats[] = $fallbackFmt;
+
+    if (!$formats) {
+        ob_end_clean();
+        @ini_set('memory_limit', (string)$prevMem);
+        return ['status' => 'skipped', 'count' => 0, 'message' => 'Niciun encoder potrivit.'];
+    }
+
+    $dir     = dirname($src);
+    $baseFs  = pathinfo($src, PATHINFO_FILENAME);
+    $relDir  = rtrim(dirname((string)$row['file_path']), '/');
+
+    $variants = [];
+    foreach (APP_GALLERY_VARIANT_WIDTHS as $targetW) {
+        if ($targetW >= $origW) continue; // no upscaling
+
+        foreach ($formats as $fmt) {
+            $ext  = ($fmt === 'jpeg') ? 'jpg' : $fmt;
+            $name = $baseFs . '-' . $targetW . '.' . $ext;
+            $outPath = $dir . '/' . $name;
+
+            // Re-decode the original for each emission so we never stack
+            // resample artefacts on top of each other.
+            $gd = bsv_gallery_gd_load($src, $mime);
+            if (!$gd) continue;
+            $gd = bsv_gallery_gd_apply_orientation($gd, $src, $mime);
+            $gd = bsv_gallery_gd_resize($gd, $targetW, $preserveAlpha);
+
+            $bytes = bsv_gallery_gd_save($gd, $fmt, $outPath);
+            $rw = imagesx($gd); $rh = imagesy($gd);
+            imagedestroy($gd);
+
+            if ($bytes <= 0) continue;
+
+            $variants[] = [
+                'w'     => $rw,
+                'h'     => $rh,
+                'fmt'   => $fmt,
+                'mime'  => ($fmt === 'jpeg') ? 'image/jpeg'
+                         : (($fmt === 'png') ? 'image/png'
+                         : (($fmt === 'avif') ? 'image/avif' : 'image/webp')),
+                'path'  => $relDir . '/' . $name,
+                'bytes' => $bytes,
+            ];
+        }
+    }
+
+    $pdo->prepare('UPDATE gallery_photos SET variants = :v, updated_at = :u WHERE id = :id')
+        ->execute([
+            ':v'  => $variants ? json_encode($variants, JSON_UNESCAPED_SLASHES) : null,
+            ':u'  => date('Y-m-d H:i:s'),
+            ':id' => $photoId,
+        ]);
+
+    ob_end_clean();
+    @ini_set('memory_limit', (string)$prevMem);
+
+    return [
+        'status'  => $variants ? 'ok' : 'skipped',
+        'count'   => count($variants),
+        'message' => $variants
+            ? 'Variante generate: ' . count($variants)
+            : 'Imaginea este deja mai mică decât cel mai mic prag — variante sărite.',
+    ];
+}
+
+/** Remove just the variant files for a photo (keeps the original and DB row). */
+function bsv_gallery_delete_variant_files(int $photoId): void
+{
+    $pdo = bsv_db();
+    $stmt = $pdo->prepare('SELECT variants FROM gallery_photos WHERE id = :id');
+    $stmt->execute([':id' => $photoId]);
+    $row = $stmt->fetch();
+    if (!$row || empty($row['variants'])) return;
+    $list = json_decode((string)$row['variants'], true);
+    if (!is_array($list)) return;
+    foreach ($list as $v) {
+        if (!empty($v['path'])) bsv_gallery_delete_file((string)$v['path']);
+    }
+}
+
+/** Read and decode the variants JSON for a photo row. Returns [] on missing/invalid. */
+function bsv_gallery_decode_variants($raw): array
+{
+    if (!$raw) return [];
+    $list = json_decode((string)$raw, true);
+    return is_array($list) ? $list : [];
+}
+
+/**
+ * Batch helper — regenerate variants for every photo that currently has none,
+ * or for ALL photos when $force is true. Returns a summary counters array.
+ */
+function bsv_gallery_regenerate_all(bool $force = false): array
+{
+    $pdo = bsv_db();
+    $sql = 'SELECT id FROM gallery_photos';
+    if (!$force) $sql .= ' WHERE variants IS NULL OR variants = ""';
+    $ids = array_map('intval', array_column($pdo->query($sql)->fetchAll(), 'id'));
+
+    $ok = 0; $skipped = 0; $errors = 0;
+    foreach ($ids as $id) {
+        $res = bsv_gallery_generate_variants($id);
+        if      ($res['status'] === 'ok')      $ok++;
+        elseif  ($res['status'] === 'skipped') $skipped++;
+        else                                   $errors++;
+    }
+    return [
+        'processed' => count($ids),
+        'ok'        => $ok,
+        'skipped'   => $skipped,
+        'errors'    => $errors,
+    ];
 }

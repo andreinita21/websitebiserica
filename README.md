@@ -347,6 +347,70 @@ fallback stays visible.
   `{ categories, photos }`. Only categories with at least one published
   photo are returned, keeping the filter bar free of empty chips.
 
+### Automatic image optimization (responsive variants)
+
+Every uploaded photo is automatically re-encoded into several smaller
+renditions so browsers can fetch just the right size for the viewport
+and device pixel ratio. This typically cuts transfer by **70–90 %** on
+phones.
+
+| Piece | Role |
+|---|---|
+| Breakpoints | `400, 800, 1200, 1600, 2000` px — larger than the original are skipped |
+| Formats | **WebP** and **AVIF** (when GD supports them) + a resized copy in the original format (JPEG/PNG) as universal fallback |
+| Storage | Variants live next to the original — `abc123.jpg` → `abc123-400.webp`, `abc123-400.avif`, `abc123-400.jpg`, …, `abc123-2000.jpg` |
+| DB | JSON list in the `variants` column of `gallery_photos` — one record per file (width, height, mime, path, bytes) |
+| EXIF | JPEG orientation tag is honoured before resize so portraits are not rotated |
+
+The public page wires these up with:
+
+```html
+<picture>
+  <source type="image/avif" srcset="abc-400.avif 400w, abc-800.avif 800w, ..." sizes="...">
+  <source type="image/webp" srcset="abc-400.webp 400w, abc-800.webp 800w, ..." sizes="...">
+  <img src="abc-800.jpg" srcset="abc-400.jpg 400w, abc-800.jpg 800w, ..." sizes="..." loading="lazy">
+</picture>
+```
+
+The `sizes` attribute mirrors the CSS-columns masonry
+(`(min-width: 1200px) 25vw, (min-width: 860px) 33vw,
+(min-width: 560px) 50vw, 100vw`), so a phone downloads the 400–800 px
+variant, a laptop downloads the 1200 px variant, a 4K retina desktop
+the 2000 px variant, and nobody downloads the 10 MB original.
+
+The lightbox picks the smallest variant that matches
+`window.innerWidth × devicePixelRatio`, preferring WebP → AVIF → JPEG.
+The original stays on disk and is never sent unless all variants are
+missing.
+
+### Regenerating variants
+
+Variants are produced automatically on upload, but you can also:
+
+- **One photo** — open **Galerie → edit photo** and click
+  *Regenerează variantele*. Useful if an upload ran out of memory or
+  you changed breakpoints/quality in `includes/gallery.php`.
+- **All photos** — on the gallery index, use the *Optimizare* dropdown:
+  - *Optimizează doar cele noi* — processes photos that have no
+    variants yet (e.g. after migrating from a version without this
+    feature).
+  - *Regenerează tot* — drops existing variant files for every photo
+    and re-creates them.
+
+### Requirements
+
+- PHP **GD** extension (ships with every stock PHP). Detected at runtime;
+  if missing, the gallery still works — it just serves the original for
+  every tile.
+- WebP support in GD is near-universal (`--with-webp`). AVIF requires
+  **PHP 8.1+ with libavif**; when absent, WebP-only variants are
+  generated and the public page skips the AVIF `<source>`.
+- `uploads/gallery/YYYY/MM/` must be writable. The encoder raises the
+  PHP `memory_limit` to 512 MB via `ini_set` during processing and then
+  restores the previous value; on hosts that disable `ini_set`, large
+  (>30 MP) originals may run out of memory — the photo still works,
+  just without variants.
+
 ### Uploading images from the admin UI
 
 1. Sign in to `admin/login.php`.
