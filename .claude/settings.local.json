@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php *)",
+      "Bash(where.exe php *)",
+      "Bash(winget install *)",
+      "Bash(winget search *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8000/)",
+      "Bash(tasklist //FI \"IMAGENAME eq php.exe\")",
+      "Bash(powershell.exe -NoProfile -Command \"[System.Environment]::GetEnvironmentVariable\\('Path','User'\\)\")"
+    ]
+  }
+}
