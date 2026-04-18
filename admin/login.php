@@ -48,7 +48,7 @@ $csrf = bsv_csrf_token();
   <main class="login-screen">
     <form class="login-card" method="post" action="login.php" autocomplete="off" novalidate>
       <div class="login-brand">
-        <span class="login-brand__mark" aria-hidden="true">✦</span>
+        <img class="login-brand__mark" src="../assets/img/LOGO.png" alt="" aria-hidden="true">
         <span class="login-brand__name">Administrare parohie</span>
         <span class="login-brand__sub">Sfântul Vasile · Ploiești</span>
       </div>

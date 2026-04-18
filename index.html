@@ -139,24 +139,21 @@
     <!-- ========== Anunțuri ========== -->
     <section id="anunturi" class="section section--dark on-dark" aria-labelledby="anunturi-h">
       <div class="container">
-        <div class="split-13">
-          <div class="reveal">
-            <span class="eyebrow mb-4">Viața parohiei</span>
-            <h2 id="anunturi-h"
-              style="font-family: var(--f-serif); font-size: clamp(2rem, 3.8vw, 3rem); line-height: 1.15; letter-spacing: -0.005em; font-weight: 400; max-width: 14ch; color: var(--c-snow);">
-              Anunțuri <em class="text-gradient-gold" style="font-style: italic;">importante</em>
-            </h2>
-            <span class="section-heading__rule" style="margin-top: var(--s-6);"></span>
-            <p class="mt-6" style="color: var(--c-snow-muted); max-width: 42ch; line-height: 1.7;">
-              Vești și cuvinte de la parohie — informații despre viața comunității și schimbări în program.
-            </p>
-          </div>
+        <div class="section-heading section-heading--center reveal">
+          <span class="eyebrow">Viața parohiei</span>
+          <h2 id="anunturi-h" style="margin-top: var(--s-4); color: var(--c-snow);">
+            Anunțuri <em class="text-gradient-gold" style="font-style: italic;">importante</em>
+          </h2>
+          <span class="section-heading__rule"></span>
+          <p class="lead text-center mx-auto mt-5" style="color: var(--c-snow-muted); max-width: 60ch;">
+            Vești și cuvinte de la parohie — informații despre viața comunității și schimbări în program.
+          </p>
+        </div>
 
-          <div class="reveal delay-1" data-announcements data-limit="3" data-endpoint="api/announcements.php">
-            <p class="upcoming-events__empty">
-              Momentan nu există anunțuri noi.
-            </p>
-          </div>
+        <div class="reveal delay-1 announcements-list" data-announcements data-limit="0" data-endpoint="api/announcements.php">
+          <p class="upcoming-events__empty">
+            Momentan nu există anunțuri noi.
+          </p>
         </div>
       </div>
     </section>
@@ -249,10 +246,6 @@
                   <p class="info-row__value" data-contact="schedule_visiting">Luni – Vineri · 08:00 – 19:00<br>Sâmbătă – Duminică · 07:30 – 20:00</p>
                 </div>
               </div>
-            </div>
-
-            <div class="mt-7">
-              <a href="contact.html" class="btn btn--ghost-light">Trimite un mesaj</a>
             </div>
           </div>
 

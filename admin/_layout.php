@@ -54,7 +54,7 @@ function bsv_admin_header(string $title, string $subtitle = '', ?string $actions
     <header class="admin-header">
       <div class="admin-header__inner">
         <a href="index.php" class="admin-brand">
-          <span class="admin-brand__mark" aria-hidden="true">✦</span>
+          <img class="admin-brand__mark" src="../assets/img/LOGO.png" alt="" aria-hidden="true">
           <span>
             <span class="admin-brand__name">Administrare parohie</span>
             <span class="admin-brand__sub">Sfântul Vasile · Ploiești</span>

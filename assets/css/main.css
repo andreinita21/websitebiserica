@@ -830,6 +830,15 @@ address { font-style: normal; }
 /* -----------------------------------------------------
    12. ANNOUNCEMENTS
    ----------------------------------------------------- */
+.announcements-list {
+  max-width: 960px;
+  margin-inline: auto;
+  padding: var(--s-4) clamp(var(--s-5), 4vw, var(--s-8));
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--c-line-snow);
+  border-radius: var(--r-md);
+}
+
 .announcement {
   display: grid;
   grid-template-columns: auto 1fr;
