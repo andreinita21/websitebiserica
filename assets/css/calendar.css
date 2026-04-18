@@ -236,16 +236,6 @@
   font-size: 0.65rem;
 }
 
-/* Category colour accents */
-.calendar__pill[data-cat="liturghie"] { border-left-color: var(--c-gold); }
-.calendar__pill[data-cat="praznic"]   { border-left-color: #E3BD61; background: #2A1F10; }
-.calendar__pill[data-cat="vecernie"]  { border-left-color: #8C6E2B; }
-.calendar__pill[data-cat="taina"]     { border-left-color: #C98A57; }
-.calendar__pill[data-cat="catehetic"] { border-left-color: #6E8F7A; }
-.calendar__pill[data-cat="caritabil"] { border-left-color: #B86A6A; }
-.calendar__pill[data-cat="eveniment"] { border-left-color: #9E7BB0; }
-
-
 /* -----------------------------------------------------
    Week view — horizontal strip of 7 day columns
    ----------------------------------------------------- */
@@ -486,42 +476,6 @@
   color: var(--c-ink-text);
   margin-bottom: var(--s-2);
 }
-
-
-/* -----------------------------------------------------
-   Legend for categories
-   ----------------------------------------------------- */
-.calendar-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-4) var(--s-5);
-  padding: var(--s-5) var(--s-6);
-  border-top: 1px solid var(--c-line-light);
-  background: var(--c-cream);
-}
-
-.calendar-legend__item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--f-sans);
-  font-size: 0.78rem;
-  color: var(--c-ink-muted);
-}
-
-.calendar-legend__swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--c-gold);
-}
-
-.calendar-legend__swatch[data-cat="praznic"]   { background: #E3BD61; }
-.calendar-legend__swatch[data-cat="vecernie"]  { background: #8C6E2B; }
-.calendar-legend__swatch[data-cat="taina"]     { background: #C98A57; }
-.calendar-legend__swatch[data-cat="catehetic"] { background: #6E8F7A; }
-.calendar-legend__swatch[data-cat="caritabil"] { background: #B86A6A; }
-.calendar-legend__swatch[data-cat="eveniment"] { background: #9E7BB0; }
 
 
 /* -----------------------------------------------------

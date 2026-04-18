@@ -742,40 +742,13 @@ body.admin {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
+  padding: 6px 14px;
   border-radius: var(--r-pill);
   border: 1px solid var(--c-line-light);
-  font-size: 0.74rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: var(--c-ink-muted);
+  color: var(--c-ink-text);
   background: var(--c-cream);
-}
-
-/* The dot color is driven by the --pill-color variable. Callers emit it as an
- * inline style per row (e.g. `style="--pill-color: #E3BD61"`). The per-slug
- * fallbacks below keep legacy markup looking right when no variable is set. */
-.pill-cat::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--pill-color, var(--c-gold));
-}
-.pill-cat[data-cat="praznic"]   { --pill-color: #E3BD61; }
-.pill-cat[data-cat="vecernie"]  { --pill-color: #8C6E2B; }
-.pill-cat[data-cat="taina"]     { --pill-color: #C98A57; }
-.pill-cat[data-cat="catehetic"] { --pill-color: #6E8F7A; }
-.pill-cat[data-cat="caritabil"] { --pill-color: #B86A6A; }
-.pill-cat[data-cat="eveniment"] { --pill-color: #9E7BB0; }
-
-.color-swatch {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  border: 1px solid rgba(0,0,0,0.1);
-  vertical-align: -2px;
-  margin-right: 6px;
 }
 
 .inline-form {

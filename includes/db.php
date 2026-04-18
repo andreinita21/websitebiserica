@@ -71,22 +71,22 @@ function bsv_seed_test_data(PDO $pdo): void
 function bsv_seed_event_categories(PDO $pdo): void
 {
     $defaults = [
-        ['liturghie', 'Sfânta Liturghie',     '#C9A24A', 10],
-        ['vecernie',  'Vecernie / Utrenie',   '#8C6E2B', 20],
-        ['praznic',   'Praznic / Sărbătoare', '#E3BD61', 30],
-        ['taina',     'Sfântă Taină',         '#C98A57', 40],
-        ['catehetic', 'Întâlnire catehetică', '#6E8F7A', 50],
-        ['caritabil', 'Acțiune caritabilă',   '#B86A6A', 60],
-        ['eveniment', 'Eveniment parohial',   '#9E7BB0', 70],
-        ['pelerinaj', 'Pelerinaj',            '#4F7AA1', 80],
-        ['concert',   'Concert / Recital',    '#C06C84', 90],
+        ['liturghie', 'Sfânta Liturghie',     10],
+        ['vecernie',  'Vecernie / Utrenie',   20],
+        ['praznic',   'Praznic / Sărbătoare', 30],
+        ['taina',     'Sfântă Taină',         40],
+        ['catehetic', 'Întâlnire catehetică', 50],
+        ['caritabil', 'Acțiune caritabilă',   60],
+        ['eveniment', 'Eveniment parohial',   70],
+        ['pelerinaj', 'Pelerinaj',            80],
+        ['concert',   'Concert / Recital',    90],
     ];
     $stmt = $pdo->prepare(
-        'INSERT OR IGNORE INTO event_categories (slug, label, color, position)
-         VALUES (:slug, :label, :color, :pos)'
+        'INSERT OR IGNORE INTO event_categories (slug, label, position)
+         VALUES (:slug, :label, :pos)'
     );
-    foreach ($defaults as [$slug, $label, $color, $pos]) {
-        $stmt->execute([':slug' => $slug, ':label' => $label, ':color' => $color, ':pos' => $pos]);
+    foreach ($defaults as [$slug, $label, $pos]) {
+        $stmt->execute([':slug' => $slug, ':label' => $label, ':pos' => $pos]);
     }
 }
 

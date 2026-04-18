@@ -41,6 +41,7 @@ function bsv_admin_header(string $title, string $subtitle = '', ?string $actions
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h($title) ?> — Administrare · Biserica Sfântul Vasile</title>
   <meta name="robots" content="noindex, nofollow">
+  <meta name="bsv-csrf" content="<?= h(bsv_csrf_token()) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&display=swap">
@@ -125,6 +126,7 @@ function bsv_admin_footer(): void
       · <a href="../galerie.html" target="_blank" rel="noopener">Galerie</a>
     </footer>
   </div>
+  <script src="../assets/js/admin-sortable.js" defer></script>
 </body>
 </html><?php
 }
