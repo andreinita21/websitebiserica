@@ -42,7 +42,7 @@ foreach (['filter', 'q', 'cat', 'rec'] as $k) {
 
 // Validation state kept across renders so the modal can re-open with errors.
 $catErrors    = [];
-$catForm      = ['id' => 0, 'slug' => '', 'label' => '', 'color' => '#C9A24A'];
+$catForm      = ['id' => 0, 'slug' => '', 'label' => ''];
 $catModalOpen = false;
 
 $locErrors    = [];
@@ -83,7 +83,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
         'id'    => (int)($_POST['id'] ?? 0),
         'slug'  => strtolower(trim((string)($_POST['slug'] ?? ''))),
         'label' => trim((string)($_POST['label'] ?? '')),
-        'color' => trim((string)($_POST['color'] ?? '#C9A24A')),
     ];
 
     if (!preg_match('/^[a-z0-9_-]{2,40}$/', $catForm['slug'])) {
@@ -91,9 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
     }
     if ($catForm['label'] === '' || mb_strlen($catForm['label']) > 120) {
         $catErrors['label'] = 'Numele este obligatoriu (maxim 120 caractere).';
-    }
-    if ($catForm['color'] !== '' && !preg_match('/^#[0-9a-f]{6}$/i', $catForm['color'])) {
-        $catErrors['color'] = 'Culoare invalidă — folosiți formatul #RRGGBB.';
     }
     if (empty($catErrors['slug'])) {
         $uniq = bsv_db()->prepare('SELECT id FROM event_categories WHERE slug = :s AND id != :id');
@@ -105,7 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
 
     if (!$catErrors) {
         $now = date('Y-m-d H:i:s');
-        $colorVal = $catForm['color'] !== '' ? $catForm['color'] : null;
         if ($action === 'cat_update' && $catForm['id'] > 0) {
             $oldStmt = bsv_db()->prepare('SELECT slug FROM event_categories WHERE id = :id');
             $oldStmt->execute([':id' => $catForm['id']]);
@@ -114,12 +109,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
             // Position stays whatever the row already has — reorder happens via the drag UI.
             $upd = bsv_db()->prepare(
                 'UPDATE event_categories
-                    SET slug = :slug, label = :label, color = :color, updated_at = :now
+                    SET slug = :slug, label = :label, updated_at = :now
                   WHERE id = :id'
             );
             $upd->execute([
                 ':slug' => $catForm['slug'], ':label' => $catForm['label'],
-                ':color' => $colorVal, ':now' => $now, ':id' => $catForm['id'],
+                ':now' => $now, ':id' => $catForm['id'],
             ]);
             if ($oldSlug !== '' && $oldSlug !== $catForm['slug']) {
                 $re = bsv_db()->prepare('UPDATE events SET category = :new WHERE category = :old');
@@ -130,12 +125,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
             // New rows go to the end of the list. The user can drag them up later.
             $nextPos = (int)bsv_db()->query('SELECT COALESCE(MAX(position), 0) + 10 FROM event_categories')->fetchColumn();
             $ins = bsv_db()->prepare(
-                'INSERT INTO event_categories (slug, label, color, position, created_at, updated_at)
-                 VALUES (:slug, :label, :color, :pos, :now, :now)'
+                'INSERT INTO event_categories (slug, label, position, created_at, updated_at)
+                 VALUES (:slug, :label, :pos, :now, :now)'
             );
             $ins->execute([
                 ':slug' => $catForm['slug'], ':label' => $catForm['label'],
-                ':color' => $colorVal, ':pos' => $nextPos, ':now' => $now,
+                ':pos' => $nextPos, ':now' => $now,
             ]);
             bsv_flash_set('success', 'Categoria a fost creată.');
         }
@@ -549,7 +544,6 @@ bsv_admin_header($headerTitle, $headerSub, $actions, 'events');
       <?php foreach ($events as $e):
         $catKey   = (string)$e['category'];
         $catLabel = bsv_category_label($catKey);
-        $catColor = bsv_category_color($catKey);
         $time = '';
         if ($e['start_time']) {
             $time = substr($e['start_time'], 0, 5);
@@ -589,7 +583,7 @@ bsv_admin_header($headerTitle, $headerSub, $actions, 'events');
             </div>
           </td>
           <td class="col-cat">
-            <span class="pill-cat" data-cat="<?= h($catKey) ?>"<?= $catColor ? ' style="--pill-color: ' . h($catColor) . '"' : '' ?>><?= h($catLabel) ?></span>
+            <span class="pill-cat" data-cat="<?= h($catKey) ?>"><?= h($catLabel) ?></span>
           </td>
           <td class="col-status">
             <?php if ((int)$e['is_published'] === 1): ?>
@@ -649,16 +643,12 @@ bsv_admin_header($headerTitle, $headerSub, $actions, 'events');
       <tr>
         <th class="col-drag" aria-hidden="true"></th>
         <th>Nume</th>
-        <th>Culoare</th>
         <th>În câte evenimente</th>
         <th class="col-actions">Acțiuni</th>
       </tr>
     </thead>
     <tbody>
-      <?php foreach ($cats as $c):
-        $usage = (int)$c['usage_count'];
-        $color = (string)($c['color'] ?? '');
-      ?>
+      <?php foreach ($cats as $c): $usage = (int)$c['usage_count']; ?>
         <tr data-sortable-id="<?= (int)$c['id'] ?>">
           <td class="col-drag">
             <span class="drag-handle" data-drag-handle aria-label="Trage pentru a reordona" title="Trage pentru a reordona">
@@ -666,17 +656,7 @@ bsv_admin_header($headerTitle, $headerSub, $actions, 'events');
             </span>
           </td>
           <td>
-            <span class="pill-cat" data-cat="<?= h($c['slug']) ?>"<?= $color !== '' ? ' style="--pill-color: ' . h($color) . '"' : '' ?>>
-              <?= h($c['label']) ?>
-            </span>
-          </td>
-          <td>
-            <?php if ($color !== ''): ?>
-              <span class="color-swatch" style="background: <?= h($color) ?>"></span>
-              <code><?= h($color) ?></code>
-            <?php else: ?>
-              <span class="hint">—</span>
-            <?php endif; ?>
+            <span class="pill-cat" data-cat="<?= h($c['slug']) ?>"><?= h($c['label']) ?></span>
           </td>
           <td><?= $usage ?> <?= $usage === 1 ? 'eveniment' : 'evenimente' ?></td>
           <td class="col-actions">
@@ -686,8 +666,7 @@ bsv_admin_header($headerTitle, $headerSub, $actions, 'events');
                     data-modal-mode="edit"
                     data-id="<?= (int)$c['id'] ?>"
                     data-slug="<?= h($c['slug']) ?>"
-                    data-label="<?= h($c['label']) ?>"
-                    data-color="<?= h($color !== '' ? $color : '#C9A24A') ?>">
+                    data-label="<?= h($c['label']) ?>">
               <span class="material-symbols-outlined" aria-hidden="true">edit</span>
               <span>Editează</span>
             </button>
@@ -783,7 +762,7 @@ bsv_admin_header($headerTitle, $headerSub, $actions, 'events');
 
 
 <!-- ====================================================================== -->
-<!-- Category modal (Nume + Slug + Culoare) — order is managed inline        -->
+<!-- Category modal (Nume + Slug) — order is managed inline                  -->
 <!-- ====================================================================== -->
 <dialog class="modal" id="cat-modal" data-modal<?= $catModalOpen ? ' data-autoopen' : '' ?> aria-labelledby="cat-modal-title">
   <form method="post" action="index.php?view=categories" class="modal__dialog" novalidate data-modal-form>
@@ -804,21 +783,13 @@ bsv_admin_header($headerTitle, $headerSub, $actions, 'events');
           <?php if (!empty($catErrors['label'])): ?><span class="err-msg"><?= h($catErrors['label']) ?></span><?php endif; ?>
         </div>
 
-        <div class="field">
+        <div class="field field-full">
           <label for="cat-slug">Slug <span class="req">*</span></label>
           <input type="text" id="cat-slug" name="slug" maxlength="40" required
                  value="<?= h($catForm['slug']) ?>" pattern="[a-z0-9_-]{2,40}"
                  placeholder="ex.: liturghie">
           <span class="hint">Identificator intern — a–z, 0–9, „-”, „_” (2–40 caractere).</span>
           <?php if (!empty($catErrors['slug'])): ?><span class="err-msg"><?= h($catErrors['slug']) ?></span><?php endif; ?>
-        </div>
-
-        <div class="field">
-          <label for="cat-color">Culoare</label>
-          <input type="color" id="cat-color" name="color"
-                 value="<?= h($catForm['color'] !== '' ? $catForm['color'] : '#C9A24A') ?>">
-          <span class="hint">Apare ca punct colorat și în legenda calendarului.</span>
-          <?php if (!empty($catErrors['color'])): ?><span class="err-msg"><?= h($catErrors['color']) ?></span><?php endif; ?>
         </div>
       </div>
     </div>
@@ -886,7 +857,7 @@ bsv_admin_header($headerTitle, $headerSub, $actions, 'events');
  * Lightweight modal controller for the categories/locations editors.
  *
  *   <button data-open-modal="cat-modal" data-modal-mode="edit"
- *           data-id=".." data-label=".." data-slug=".." data-color=".." data-position="..">
+ *           data-id=".." data-label=".." data-slug="..">
  *
  * When clicked, populates the matching <dialog>'s inputs (fields named in
  * data-attrs map 1:1 to [name=...] inputs in the modal) and opens it.

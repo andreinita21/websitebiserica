@@ -23,7 +23,6 @@ $defaults = [
     // user picks the "+ add new" sentinel option in the respective select.
     'new_category_slug'   => '',
     'new_category_label'  => '',
-    'new_category_color'  => '#C9A24A',
     'new_location_name'   => '',
 ];
 
@@ -88,7 +87,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // set to the '__new__' sentinel.
     $data['new_category_slug']   = strtolower(trim((string)($_POST['new_category_slug']  ?? '')));
     $data['new_category_label']  = trim((string)($_POST['new_category_label'] ?? ''));
-    $data['new_category_color']  = trim((string)($_POST['new_category_color'] ?? '#C9A24A'));
     $data['new_location_name']   = trim((string)($_POST['new_location_name']  ?? ''));
 
     // Resolve the effective location value from either the select or the
@@ -123,9 +121,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($data['new_category_label'] === '' || mb_strlen($data['new_category_label']) > 120) {
             $errors['new_category_label'] = 'Numele categoriei este obligatoriu (maxim 120 caractere).';
-        }
-        if ($data['new_category_color'] !== '' && !preg_match('/^#[0-9a-f]{6}$/i', $data['new_category_color'])) {
-            $errors['new_category_color'] = 'Culoare invalidă — folosiți formatul #RRGGBB.';
         }
         if (empty($errors['new_category_slug'])) {
             $chk = bsv_db()->prepare('SELECT id FROM event_categories WHERE slug = :s');
@@ -172,13 +167,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // foreign-ish reference is valid by the time the event is saved.
         if ($data['category'] === '__new__') {
             $insCat = bsv_db()->prepare(
-                'INSERT INTO event_categories (slug, label, color, position, created_at, updated_at)
-                 VALUES (:slug, :label, :color, 1000, :now, :now)'
+                'INSERT INTO event_categories (slug, label, position, created_at, updated_at)
+                 VALUES (:slug, :label, 1000, :now, :now)'
             );
             $insCat->execute([
                 ':slug'  => $data['new_category_slug'],
                 ':label' => $data['new_category_label'],
-                ':color' => $data['new_category_color'] !== '' ? $data['new_category_color'] : null,
                 ':now'   => $now,
             ]);
             $data['category'] = $data['new_category_slug'];
@@ -392,12 +386,6 @@ bsv_admin_header($title, $subtitle);
                    value="<?= h($data['new_category_slug']) ?>" placeholder="ex.: scoala-duminica">
             <span class="hint">ASCII, folosit intern (a–z, 0–9, "-", "_").</span>
             <?php if (!empty($errors['new_category_slug'])): ?><span class="err-msg"><?= h($errors['new_category_slug']) ?></span><?php endif; ?>
-          </div>
-          <div class="field">
-            <label for="new_category_color">Culoare</label>
-            <input type="color" id="new_category_color" name="new_category_color"
-                   value="<?= h($data['new_category_color'] !== '' ? $data['new_category_color'] : '#C9A24A') ?>">
-            <?php if (!empty($errors['new_category_color'])): ?><span class="err-msg"><?= h($errors['new_category_color']) ?></span><?php endif; ?>
           </div>
         </div>
       </div>

@@ -130,7 +130,6 @@ $events = array_map(static function (array $r): array {
         'location'            => (string)$r['location'],
         'category'            => $catKey,
         'category_label'      => bsv_category_label($catKey),
-        'category_color'      => bsv_category_color($catKey),
         'recurrence_type'     => ($rec === null || $rec === '') ? null : (string)$rec,
         'recurrence_end_date' => isset($r['recurrence_end_date']) && $r['recurrence_end_date'] !== ''
             ? (string)$r['recurrence_end_date']
