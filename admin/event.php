@@ -14,11 +14,23 @@ $defaults = [
     'start_time'          => '',
     'end_time'            => '',
     'location'            => '',
-    'category'            => 'liturghie',
+    'location_choice'     => '',
+    'category'            => '',
     'recurrence_type'     => '',
     'recurrence_end_date' => '',
     'is_published'        => 1,
+    // Inline "new category" + "new location" fields — only used when the
+    // user picks the "+ add new" sentinel option in the respective select.
+    'new_category_slug'   => '',
+    'new_category_label'  => '',
+    'new_category_color'  => '#C9A24A',
+    'new_location_name'   => '',
 ];
+
+// Default selected category is the first available one for fresh forms.
+$allCategories = bsv_categories();
+$defaults['category'] = $allCategories ? (array_key_first($allCategories)) : '';
+$allLocations = bsv_locations();
 
 $recurrenceLabels = [
     ''        => 'Fără recurență (o singură dată)',
@@ -46,7 +58,8 @@ if ($isEdit && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         'event_date'          => $row['event_date'],
         'start_time'          => $row['start_time'] ? substr($row['start_time'], 0, 5) : '',
         'end_time'            => $row['end_time']   ? substr($row['end_time'], 0, 5)   : '',
-        'location'            => $row['location'],
+        'location'            => (string)$row['location'],
+        'location_choice'     => (string)$row['location'],
         'category'            => $row['category'],
         'recurrence_type'     => $row['recurrence_type'] ?? '',
         'recurrence_end_date' => $row['recurrence_end_date'] ?? '',
@@ -65,11 +78,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data['event_date']          = trim((string)($_POST['event_date'] ?? ''));
     $data['start_time']          = trim((string)($_POST['start_time'] ?? ''));
     $data['end_time']            = trim((string)($_POST['end_time'] ?? ''));
-    $data['location']            = trim((string)($_POST['location'] ?? ''));
-    $data['category']            = (string)($_POST['category'] ?? 'liturghie');
+    $data['location_choice']     = (string)($_POST['location_choice'] ?? '');
+    $data['category']            = (string)($_POST['category'] ?? '');
     $data['recurrence_type']     = trim((string)($_POST['recurrence_type'] ?? ''));
     $data['recurrence_end_date'] = trim((string)($_POST['recurrence_end_date'] ?? ''));
     $data['is_published']        = isset($_POST['is_published']) ? 1 : 0;
+
+    // Inline create fields — only meaningful when the corresponding select is
+    // set to the '__new__' sentinel.
+    $data['new_category_slug']   = strtolower(trim((string)($_POST['new_category_slug']  ?? '')));
+    $data['new_category_label']  = trim((string)($_POST['new_category_label'] ?? ''));
+    $data['new_category_color']  = trim((string)($_POST['new_category_color'] ?? '#C9A24A'));
+    $data['new_location_name']   = trim((string)($_POST['new_location_name']  ?? ''));
+
+    // Resolve the effective location value from either the select or the
+    // "new location" input. The canonical events.location column is always
+    // the plain-text string.
+    if ($data['location_choice'] === '__new__') {
+        $data['location'] = $data['new_location_name'];
+    } else {
+        $data['location'] = $data['location_choice'];
+    }
 
     if ($data['title'] === '' || mb_strlen($data['title']) > 180) {
         $errors['title'] = 'Titlul este obligatoriu (maxim 180 de caractere).';
@@ -88,10 +117,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($startClean && $endClean && $endClean < $startClean) {
         $errors['end_time'] = 'Ora de sfârșit trebuie să fie după ora de început.';
     }
-    if (!bsv_valid_category($data['category'])) {
+    if ($data['category'] === '__new__') {
+        if (!preg_match('/^[a-z0-9_-]{2,40}$/', $data['new_category_slug'])) {
+            $errors['new_category_slug'] = 'Slug invalid — doar a–z, 0–9, "-" și "_" (2–40 caractere).';
+        }
+        if ($data['new_category_label'] === '' || mb_strlen($data['new_category_label']) > 120) {
+            $errors['new_category_label'] = 'Numele categoriei este obligatoriu (maxim 120 caractere).';
+        }
+        if ($data['new_category_color'] !== '' && !preg_match('/^#[0-9a-f]{6}$/i', $data['new_category_color'])) {
+            $errors['new_category_color'] = 'Culoare invalidă — folosiți formatul #RRGGBB.';
+        }
+        if (empty($errors['new_category_slug'])) {
+            $chk = bsv_db()->prepare('SELECT id FROM event_categories WHERE slug = :s');
+            $chk->execute([':s' => $data['new_category_slug']]);
+            if ($chk->fetchColumn()) {
+                $errors['new_category_slug'] = 'Acest slug există deja — alegeți altul sau selectați categoria din listă.';
+            }
+        }
+    } elseif (!bsv_valid_category($data['category'])) {
         $errors['category'] = 'Categoria selectată nu este validă.';
     }
-    if (mb_strlen($data['location']) > 200) {
+
+    if ($data['location_choice'] === '__new__') {
+        if ($data['new_location_name'] === '' || mb_strlen($data['new_location_name']) > 200) {
+            $errors['new_location_name'] = 'Numele locației este obligatoriu (maxim 200 caractere).';
+        }
+    } elseif (mb_strlen($data['location']) > 200) {
         $errors['location'] = 'Locația este prea lungă (maxim 200 de caractere).';
     }
     if (mb_strlen($data['description']) > 5000) {
@@ -116,6 +167,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $now = date('Y-m-d H:i:s');
         $recType = $data['recurrence_type'] === '' ? null : $data['recurrence_type'];
         $recEnd  = $data['recurrence_end_date'] === '' ? null : $data['recurrence_end_date'];
+
+        // Persist a new category (if requested) before the event row so the
+        // foreign-ish reference is valid by the time the event is saved.
+        if ($data['category'] === '__new__') {
+            $insCat = bsv_db()->prepare(
+                'INSERT INTO event_categories (slug, label, color, position, created_at, updated_at)
+                 VALUES (:slug, :label, :color, 1000, :now, :now)'
+            );
+            $insCat->execute([
+                ':slug'  => $data['new_category_slug'],
+                ':label' => $data['new_category_label'],
+                ':color' => $data['new_category_color'] !== '' ? $data['new_category_color'] : null,
+                ':now'   => $now,
+            ]);
+            $data['category'] = $data['new_category_slug'];
+        }
+
+        // Persist a new location in the suggestion library. If the name is
+        // already there (unique constraint), quietly skip.
+        if ($data['location_choice'] === '__new__' && $data['new_location_name'] !== '') {
+            try {
+                $insLoc = bsv_db()->prepare(
+                    'INSERT INTO event_locations (name, position, created_at, updated_at)
+                     VALUES (:name, 1000, :now, :now)'
+                );
+                $insLoc->execute([':name' => $data['new_location_name'], ':now' => $now]);
+            } catch (Throwable $e) { /* duplicate → ignore */ }
+        }
         if ($isEdit) {
             $stmt = bsv_db()->prepare(
                 'UPDATE events
@@ -288,14 +367,40 @@ bsv_admin_header($title, $subtitle);
       <?php if (!empty($errors['event_date'])): ?><span class="err-msg"><?= h($errors['event_date']) ?></span><?php endif; ?>
     </div>
 
-    <div class="field field-full">
+    <div class="field field-full" data-category-field>
       <label for="category">Categorie <span class="req">*</span></label>
-      <select id="category" name="category">
-        <?php foreach (APP_CATEGORIES as $key => $label): ?>
-          <option value="<?= h($key) ?>" <?= $data['category'] === $key ? 'selected' : '' ?>><?= h($label) ?></option>
+      <select id="category" name="category" data-category-select>
+        <?php foreach (bsv_categories() as $slug => $label): ?>
+          <option value="<?= h($slug) ?>" <?= $data['category'] === $slug ? 'selected' : '' ?>><?= h($label) ?></option>
         <?php endforeach; ?>
+        <option value="__new__" <?= $data['category'] === '__new__' ? 'selected' : '' ?>>+ Adaugă categorie nouă…</option>
       </select>
       <?php if (!empty($errors['category'])): ?><span class="err-msg"><?= h($errors['category']) ?></span><?php endif; ?>
+
+      <div class="inline-new" data-new-category<?= $data['category'] === '__new__' ? '' : ' hidden' ?>>
+        <div class="inline-new__grid">
+          <div class="field">
+            <label for="new_category_label">Nume <span class="req">*</span></label>
+            <input type="text" id="new_category_label" name="new_category_label" maxlength="120"
+                   value="<?= h($data['new_category_label']) ?>" placeholder="ex.: Școala de duminică">
+            <?php if (!empty($errors['new_category_label'])): ?><span class="err-msg"><?= h($errors['new_category_label']) ?></span><?php endif; ?>
+          </div>
+          <div class="field">
+            <label for="new_category_slug">Slug <span class="req">*</span></label>
+            <input type="text" id="new_category_slug" name="new_category_slug" maxlength="40"
+                   pattern="[a-z0-9_-]{2,40}"
+                   value="<?= h($data['new_category_slug']) ?>" placeholder="ex.: scoala-duminica">
+            <span class="hint">ASCII, folosit intern (a–z, 0–9, "-", "_").</span>
+            <?php if (!empty($errors['new_category_slug'])): ?><span class="err-msg"><?= h($errors['new_category_slug']) ?></span><?php endif; ?>
+          </div>
+          <div class="field">
+            <label for="new_category_color">Culoare</label>
+            <input type="color" id="new_category_color" name="new_category_color"
+                   value="<?= h($data['new_category_color'] !== '' ? $data['new_category_color'] : '#C9A24A') ?>">
+            <?php if (!empty($errors['new_category_color'])): ?><span class="err-msg"><?= h($errors['new_category_color']) ?></span><?php endif; ?>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="field">
@@ -314,12 +419,35 @@ bsv_admin_header($title, $subtitle);
       <?php if (!empty($errors['end_time'])): ?><span class="err-msg"><?= h($errors['end_time']) ?></span><?php endif; ?>
     </div>
 
-    <div class="field field-full">
-      <label for="location">Locație</label>
-      <input type="text" id="location" name="location" maxlength="200"
-             value="<?= h($data['location']) ?>"
-             placeholder="De ex.: Altarul principal, Sala parohială, Curtea bisericii">
+    <div class="field field-full" data-location-field>
+      <label for="location_choice">Locație</label>
+      <?php
+        $savedLocNames = array_map(static fn($l) => (string)$l['name'], $allLocations);
+        $currentLoc    = (string)$data['location_choice'];
+        $isCustomLoc   = $currentLoc !== '' && $currentLoc !== '__new__' && !in_array($currentLoc, $savedLocNames, true);
+      ?>
+      <select id="location_choice" name="location_choice" data-location-select>
+        <option value="" <?= $currentLoc === '' ? 'selected' : '' ?>>— Fără locație —</option>
+        <?php if ($isCustomLoc): ?>
+          <option value="<?= h($currentLoc) ?>" selected><?= h($currentLoc) ?> (salvat pe eveniment)</option>
+        <?php endif; ?>
+        <?php foreach ($allLocations as $loc): ?>
+          <option value="<?= h($loc['name']) ?>" <?= $currentLoc === $loc['name'] ? 'selected' : '' ?>><?= h($loc['name']) ?></option>
+        <?php endforeach; ?>
+        <option value="__new__" <?= $currentLoc === '__new__' ? 'selected' : '' ?>>+ Adaugă locație nouă…</option>
+      </select>
       <?php if (!empty($errors['location'])): ?><span class="err-msg"><?= h($errors['location']) ?></span><?php endif; ?>
+
+      <div class="inline-new" data-new-location<?= $currentLoc === '__new__' ? '' : ' hidden' ?>>
+        <div class="field">
+          <label for="new_location_name">Nume locație <span class="req">*</span></label>
+          <input type="text" id="new_location_name" name="new_location_name" maxlength="200"
+                 value="<?= h($data['new_location_name']) ?>"
+                 placeholder="ex.: Altarul principal, Sala parohială, Curtea bisericii">
+          <span class="hint">Locația va fi salvată și în lista de locații pentru refolosire.</span>
+          <?php if (!empty($errors['new_location_name'])): ?><span class="err-msg"><?= h($errors['new_location_name']) ?></span><?php endif; ?>
+        </div>
+      </div>
     </div>
 
     <div class="field field-full">
@@ -508,6 +636,27 @@ bsv_admin_header($title, $subtitle);
         if (rec.value === 'monthly') hidden.value = iso(nextDayOfMonthDate(dom));
       });
     });
+
+    // --- Inline "new category / new location" disclosure -------------------
+    // The selects include an '__new__' sentinel option — when it's chosen,
+    // reveal the corresponding inline block of extra fields.
+    function toggleInlineNew(selectEl, box) {
+      if (!selectEl || !box) return;
+      function sync() {
+        if (selectEl.value === '__new__') box.removeAttribute('hidden');
+        else box.setAttribute('hidden', '');
+      }
+      selectEl.addEventListener('change', sync);
+      sync();
+    }
+    toggleInlineNew(
+      form.querySelector('[data-category-select]'),
+      form.querySelector('[data-new-category]')
+    );
+    toggleInlineNew(
+      form.querySelector('[data-location-select]'),
+      form.querySelector('[data-new-location]')
+    );
   })();
 </script>
 

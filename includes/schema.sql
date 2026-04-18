@@ -22,6 +22,28 @@ CREATE INDEX IF NOT EXISTS idx_events_published  ON events(is_published, event_d
 -- idx_events_recurrence is created by bsv_migrate_events_recurrence() after
 -- the recurrence_type column is guaranteed to exist on legacy databases.
 
+CREATE TABLE IF NOT EXISTS event_categories (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug       TEXT    NOT NULL UNIQUE,                 -- ASCII-safe key stored in events.category
+    label      TEXT    NOT NULL,                        -- display name shown in UI
+    color      TEXT,                                    -- hex color for pills/legend (e.g. "#C9A24A")
+    position   INTEGER NOT NULL DEFAULT 0,              -- manual ordering in selects and lists
+    created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now')),
+    updated_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_categories_pos ON event_categories(position, id);
+
+CREATE TABLE IF NOT EXISTS event_locations (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT    NOT NULL UNIQUE,                 -- the canonical name copied into events.location
+    position   INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now')),
+    updated_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_locations_pos ON event_locations(position, id);
+
 CREATE TABLE IF NOT EXISTS announcements (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     title          TEXT    NOT NULL,

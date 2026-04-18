@@ -119,7 +119,6 @@ if ($limit > 0) {
 
 $events = array_map(static function (array $r): array {
     $catKey   = (string)($r['category'] ?? '');
-    $catLabel = APP_CATEGORIES[$catKey] ?? 'Eveniment';
     $rec      = $r['recurrence_type'] ?? null;
     return [
         'id'                  => (int)$r['id'],
@@ -130,7 +129,8 @@ $events = array_map(static function (array $r): array {
         'end_time'            => $r['end_time']   !== null ? (string)$r['end_time']   : null,
         'location'            => (string)$r['location'],
         'category'            => $catKey,
-        'category_label'      => $catLabel,
+        'category_label'      => bsv_category_label($catKey),
+        'category_color'      => bsv_category_color($catKey),
         'recurrence_type'     => ($rec === null || $rec === '') ? null : (string)$rec,
         'recurrence_end_date' => isset($r['recurrence_end_date']) && $r['recurrence_end_date'] !== ''
             ? (string)$r['recurrence_end_date']

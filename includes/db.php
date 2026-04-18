@@ -35,6 +35,8 @@ function bsv_db(): PDO
     bsv_migrate_announcements_column($pdo);
     bsv_migrate_events_recurrence($pdo);
     bsv_migrate_gallery($pdo);
+    bsv_seed_event_categories($pdo);
+    bsv_seed_event_locations($pdo);
 
     if ($freshInstall) {
         bsv_seed_sample_events($pdo);
@@ -42,6 +44,85 @@ function bsv_db(): PDO
     }
 
     return $pdo;
+}
+
+/**
+ * Populate event_categories from the APP_CATEGORIES constant the first time
+ * the table is empty. After that the admin UI owns the list; we never touch
+ * existing rows on subsequent requests.
+ */
+function bsv_seed_event_categories(PDO $pdo): void
+{
+    try {
+        $count = (int)$pdo->query('SELECT COUNT(*) FROM event_categories')->fetchColumn();
+    } catch (Throwable $e) {
+        return;
+    }
+    if ($count > 0) return;
+
+    // Default colors mirror the calendar legend so seeded categories look
+    // identical to the hardcoded palette used before this table existed.
+    $defaults = [
+        'liturghie' => ['Sfânta Liturghie',        '#C9A24A'],
+        'vecernie'  => ['Vecernie / Utrenie',      '#8C6E2B'],
+        'praznic'   => ['Praznic / Sărbătoare',    '#E3BD61'],
+        'taina'     => ['Sfântă Taină',            '#C98A57'],
+        'catehetic' => ['Întâlnire catehetică',    '#6E8F7A'],
+        'caritabil' => ['Acțiune caritabilă',      '#B86A6A'],
+        'eveniment' => ['Eveniment parohial',      '#9E7BB0'],
+    ];
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO event_categories (slug, label, color, position) VALUES (:slug, :label, :color, :pos)'
+    );
+    $pos = 10;
+    foreach ($defaults as $slug => [$label, $color]) {
+        // Prefer labels from APP_CATEGORIES if it exists (in case a deployment
+        // has customised the constant before this migration ran).
+        if (defined('APP_CATEGORIES') && is_array(APP_CATEGORIES) && isset(APP_CATEGORIES[$slug])) {
+            $label = (string)APP_CATEGORIES[$slug];
+        }
+        try {
+            $stmt->execute([':slug' => $slug, ':label' => $label, ':color' => $color, ':pos' => $pos]);
+            $pos += 10;
+        } catch (Throwable $e) {}
+    }
+}
+
+/**
+ * Populate event_locations the first time it is empty by pulling distinct
+ * non-empty location strings out of the existing events table. After that the
+ * admin UI owns the list.
+ */
+function bsv_seed_event_locations(PDO $pdo): void
+{
+    try {
+        $count = (int)$pdo->query('SELECT COUNT(*) FROM event_locations')->fetchColumn();
+    } catch (Throwable $e) {
+        return;
+    }
+    if ($count > 0) return;
+
+    try {
+        $names = $pdo->query(
+            "SELECT DISTINCT location FROM events
+              WHERE location IS NOT NULL AND TRIM(location) != ''
+              ORDER BY location ASC"
+        )->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Throwable $e) {
+        $names = [];
+    }
+
+    $stmt = $pdo->prepare('INSERT INTO event_locations (name, position) VALUES (:name, :pos)');
+    $pos = 10;
+    foreach ($names as $name) {
+        $name = trim((string)$name);
+        if ($name === '') continue;
+        try {
+            $stmt->execute([':name' => $name, ':pos' => $pos]);
+            $pos += 10;
+        } catch (Throwable $e) {}
+    }
 }
 
 /**

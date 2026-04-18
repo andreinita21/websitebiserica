@@ -416,6 +416,34 @@ body.admin {
   box-shadow: 0 0 0 3px var(--c-gold-soft);
 }
 
+/* Inline "+ add new" disclosure — revealed when a select is switched to the
+ * '__new__' sentinel option (e.g. "+ Adaugă categorie nouă"). Sits visually
+ * nested under the select it belongs to. */
+.inline-new {
+  margin-top: var(--s-3);
+  padding: var(--s-4);
+  background: var(--c-cream-2);
+  border: 1px dashed var(--c-gold);
+  border-radius: var(--r-md);
+}
+
+.inline-new[hidden] { display: none; }
+
+.inline-new__grid {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr;
+  gap: var(--s-4);
+}
+
+.inline-new .field label {
+  font-size: 0.72rem;
+  color: var(--c-gold-deep);
+}
+
+@media (max-width: 640px) {
+  .inline-new__grid { grid-template-columns: 1fr; }
+}
+
 /* Yearly / none pickers use native inputs styled via existing .field rules,
  * but they live inside .rec-picker so constrain width so the calendar input
  * doesn't stretch the full 2-column grid. */
@@ -536,6 +564,85 @@ body.admin {
   border-color: var(--c-ink);
 }
 
+/* Search + filter row (beneath the tab filters). */
+.events-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--c-cream-2);
+  border: 1px solid var(--c-line-light);
+  border-radius: var(--r-lg);
+  margin-bottom: var(--s-5);
+}
+
+.events-search__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.events-search__group--q {
+  flex: 1 1 280px;
+  position: relative;
+}
+
+.events-search__label {
+  font-family: var(--f-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-muted);
+}
+
+.events-search input[type="search"] {
+  width: 100%;
+  padding: 0.7rem 1rem 0.7rem 2.4rem;
+  font-family: var(--f-sans);
+  font-size: 0.95rem;
+  color: var(--c-ink-text);
+  background: var(--c-cream);
+  border: 1px solid var(--c-line-light);
+  border-radius: var(--r-md);
+  transition: border-color var(--t-smooth), box-shadow var(--t-smooth), background var(--t-smooth);
+}
+
+.events-search input[type="search"]:focus {
+  outline: none;
+  border-color: var(--c-gold);
+  background: #FFFDF5;
+  box-shadow: 0 0 0 4px var(--c-gold-soft);
+}
+
+.events-search__icon {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.55rem;
+  color: var(--c-ink-muted);
+  font-size: 1.25rem;
+  pointer-events: none;
+}
+
+.events-search select {
+  padding: 0.7rem 1rem;
+  font-family: var(--f-sans);
+  font-size: 0.95rem;
+  color: var(--c-ink-text);
+  background: var(--c-cream);
+  border: 1px solid var(--c-line-light);
+  border-radius: var(--r-md);
+}
+
+.events-search__actions {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  margin-left: auto;
+}
+
 .events-table {
   width: 100%;
   border-collapse: separate;
@@ -644,19 +751,32 @@ body.admin {
   background: var(--c-cream);
 }
 
+/* The dot color is driven by the --pill-color variable. Callers emit it as an
+ * inline style per row (e.g. `style="--pill-color: #E3BD61"`). The per-slug
+ * fallbacks below keep legacy markup looking right when no variable is set. */
 .pill-cat::before {
   content: '';
   width: 8px;
   height: 8px;
   border-radius: 2px;
-  background: var(--c-gold);
+  background: var(--pill-color, var(--c-gold));
 }
-.pill-cat[data-cat="praznic"]::before   { background: #E3BD61; }
-.pill-cat[data-cat="vecernie"]::before  { background: #8C6E2B; }
-.pill-cat[data-cat="taina"]::before     { background: #C98A57; }
-.pill-cat[data-cat="catehetic"]::before { background: #6E8F7A; }
-.pill-cat[data-cat="caritabil"]::before { background: #B86A6A; }
-.pill-cat[data-cat="eveniment"]::before { background: #9E7BB0; }
+.pill-cat[data-cat="praznic"]   { --pill-color: #E3BD61; }
+.pill-cat[data-cat="vecernie"]  { --pill-color: #8C6E2B; }
+.pill-cat[data-cat="taina"]     { --pill-color: #C98A57; }
+.pill-cat[data-cat="catehetic"] { --pill-color: #6E8F7A; }
+.pill-cat[data-cat="caritabil"] { --pill-color: #B86A6A; }
+.pill-cat[data-cat="eveniment"] { --pill-color: #9E7BB0; }
+
+.color-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.1);
+  vertical-align: -2px;
+  margin-right: 6px;
+}
 
 .inline-form {
   display: inline;

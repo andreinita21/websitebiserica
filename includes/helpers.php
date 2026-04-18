@@ -65,10 +65,109 @@ function bsv_valid_date(?string $raw): bool
     return $d && $d->format('Y-m-d') === $raw;
 }
 
-/** Valid category key. */
+/**
+ * Event categories as [slug => label]. Falls back to the APP_CATEGORIES
+ * constant if the DB is unreachable (e.g. during CLI tooling), so callers
+ * never see an empty list.
+ */
+function bsv_categories(): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    if (function_exists('bsv_db')) {
+        try {
+            $rows = bsv_db()->query(
+                'SELECT slug, label FROM event_categories ORDER BY position ASC, id ASC'
+            )->fetchAll();
+            if ($rows) {
+                $cache = [];
+                foreach ($rows as $r) {
+                    $cache[(string)$r['slug']] = (string)$r['label'];
+                }
+                return $cache;
+            }
+        } catch (Throwable $e) {
+            // fall through to APP_CATEGORIES fallback
+        }
+    }
+    $cache = defined('APP_CATEGORIES') && is_array(APP_CATEGORIES) ? APP_CATEGORIES : [];
+    return $cache;
+}
+
+/**
+ * Full category records keyed by slug: [slug => ['label' => ..., 'color' => ...]]
+ */
+function bsv_categories_full(): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $cache = [];
+    if (function_exists('bsv_db')) {
+        try {
+            $rows = bsv_db()->query(
+                'SELECT id, slug, label, color, position FROM event_categories ORDER BY position ASC, id ASC'
+            )->fetchAll();
+            foreach ($rows as $r) {
+                $cache[(string)$r['slug']] = [
+                    'id'       => (int)$r['id'],
+                    'label'    => (string)$r['label'],
+                    'color'    => $r['color'] !== null ? (string)$r['color'] : null,
+                    'position' => (int)$r['position'],
+                ];
+            }
+        } catch (Throwable $e) {}
+    }
+    return $cache;
+}
+
+/** Look up the display label for a category slug. Returns a generic fallback
+ *  if the slug is unknown (e.g. the category was deleted after rows were saved). */
+function bsv_category_label(?string $slug): string
+{
+    if (!is_string($slug) || $slug === '') return 'Eveniment';
+    $all = bsv_categories();
+    return $all[$slug] ?? 'Eveniment';
+}
+
+/** Hex color for a category slug, or null if none is set. */
+function bsv_category_color(?string $slug): ?string
+{
+    if (!is_string($slug) || $slug === '') return null;
+    $full = bsv_categories_full();
+    return $full[$slug]['color'] ?? null;
+}
+
+/** Valid category key (must currently exist in event_categories). */
 function bsv_valid_category(?string $raw): bool
 {
-    return is_string($raw) && array_key_exists($raw, APP_CATEGORIES);
+    if (!is_string($raw) || $raw === '') return false;
+    return array_key_exists($raw, bsv_categories());
+}
+
+/** Saved event locations, ordered by position then name. */
+function bsv_locations(): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $cache = [];
+    if (function_exists('bsv_db')) {
+        try {
+            $rows = bsv_db()->query(
+                'SELECT id, name, position FROM event_locations ORDER BY position ASC, name ASC'
+            )->fetchAll();
+            foreach ($rows as $r) {
+                $cache[] = [
+                    'id'       => (int)$r['id'],
+                    'name'     => (string)$r['name'],
+                    'position' => (int)$r['position'],
+                ];
+            }
+        } catch (Throwable $e) {}
+    }
+    return $cache;
 }
 
 const BSV_RECURRENCE_TYPES = ['weekly', 'monthly', 'yearly'];
