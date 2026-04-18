@@ -1400,3 +1400,462 @@ body.admin {
 .regen-menu__item small  { display: block; font-size: 0.78rem; color: var(--c-ink-muted); }
 .regen-menu__item--warn:hover { background: #FDECE8; }
 .regen-menu__item--warn .material-symbols-outlined { color: #8E2B1B; }
+
+
+/* -----------------------------------------------------
+   Section sub-nav (Events: Evenimente/Categorii/Locații,
+   Gallery: Fotografii/Categorii). Lighter than the
+   primary admin-section-nav so the hierarchy reads.
+   ----------------------------------------------------- */
+.admin-subnav {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: var(--s-5);
+  background: var(--c-cream-2);
+  border: 1px solid var(--c-line-light);
+  border-radius: var(--r-pill);
+}
+
+.admin-subnav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.45rem 0.95rem;
+  font-family: var(--f-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--c-ink-muted);
+  text-decoration: none;
+  border-radius: var(--r-pill);
+  transition: background var(--t-smooth), color var(--t-smooth);
+}
+
+.admin-subnav__link .material-symbols-outlined { font-size: 1rem; }
+
+.admin-subnav__link:hover {
+  color: var(--c-ink);
+}
+
+.admin-subnav__link.is-active {
+  background: var(--c-ink);
+  color: var(--c-snow);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+
+/* -----------------------------------------------------
+   Modal dialog — native <dialog> + styled golden frame
+   Used for the inline category/location editors.
+   ----------------------------------------------------- */
+.modal {
+  /* Explicitly centered on both axes. Overriding the UA defaults because
+     width:100% defeats the built-in `margin:auto` auto-centering in some
+     browsers, and showModal()'s native centering doesn't work when the
+     dialog has no natural height. */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--c-ink-text);
+  width: min(520px, calc(100vw - 24px));
+  max-width: 100%;
+  max-height: calc(100vh - 24px);
+  overflow: visible;
+}
+
+.modal::backdrop {
+  background: rgba(14, 14, 16, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.modal[open] {
+  animation: modal-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(0.98); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1);                }
+}
+
+.modal__dialog {
+  max-height: calc(100vh - 24px);
+  background: var(--c-cream);
+  border: 1.5px solid var(--c-gold);
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 0 0 6px var(--c-gold-soft),
+    0 18px 48px rgba(14, 14, 16, 0.32),
+    0 40px 80px rgba(14, 14, 16, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-5) var(--s-3);
+  border-bottom: 1px solid var(--c-line-light);
+  background: linear-gradient(180deg, var(--c-cream-2), var(--c-cream));
+  flex: 0 0 auto;
+}
+
+.modal__head h2 {
+  margin: 0;
+  font-family: var(--f-serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--c-ink);
+  letter-spacing: -0.005em;
+}
+
+.modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--c-ink-muted);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background var(--t-smooth), color var(--t-smooth), border-color var(--t-smooth);
+  flex: 0 0 auto;
+}
+
+.modal__close:hover,
+.modal__close:focus-visible {
+  background: var(--c-cream-3);
+  color: var(--c-ink);
+  border-color: var(--c-line-light);
+}
+
+.modal__body {
+  padding: var(--s-5);
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+.modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  border-top: 1px solid var(--c-line-light);
+  background: var(--c-cream-2);
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+}
+
+.form-grid--modal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-4);
+}
+
+@media (max-width: 560px) {
+  .modal {
+    /* Near full-screen sheet on phones — keeps long labels readable and
+       gives large tap targets. Small side margin preserves the golden ring. */
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+  .modal__dialog { max-height: calc(100dvh - 16px); }
+  .form-grid--modal { grid-template-columns: 1fr; gap: var(--s-3); }
+  .modal__head { padding: var(--s-4) var(--s-4) var(--s-3); }
+  .modal__head h2 { font-size: 1.1rem; }
+  .modal__body { padding: var(--s-4); }
+  .modal__foot {
+    padding: var(--s-3) var(--s-4);
+    justify-content: stretch;
+  }
+  .modal__foot .adm-btn {
+    flex: 1 1 140px;
+    justify-content: center;
+    min-height: 44px;           /* iOS tap target */
+  }
+}
+
+
+/* -----------------------------------------------------
+   Clergy photo editor + circular cropper
+   ----------------------------------------------------- */
+.photo-editor {
+  display: flex;
+  gap: var(--s-5);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.photo-editor__preview {
+  flex: 0 0 auto;
+}
+
+.photo-editor__preview img {
+  width: 132px;
+  height: 132px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid var(--c-gold);
+  padding: 4px;
+  background: var(--c-ink-2);
+  box-shadow: 0 0 0 5px var(--c-gold-soft);
+}
+
+.photo-editor__side {
+  flex: 1 1 240px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  align-items: flex-start;
+}
+
+.photo-editor__side .adm-btn { cursor: pointer; }
+
+.photo-editor__remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--s-2);
+  font-size: 0.88rem;
+  color: var(--c-ink-muted);
+}
+
+.cropper {
+  margin-top: var(--s-5);
+  padding: var(--s-4);
+  background: var(--c-cream-2);
+  border: 1px dashed var(--c-gold);
+  border-radius: var(--r-md);
+  display: flex;
+  gap: var(--s-5);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cropper[hidden] { display: none; }
+
+.cropper__stage {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  background: #111;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+}
+.cropper__stage:active { cursor: grabbing; }
+
+.cropper__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Dim everything outside the 240px circle and draw a 2px golden ring.
+   Single-layer radial gradient keeps this crisp without extra elements. */
+.cropper__viewport {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    transparent 0,
+    transparent 119px,
+    var(--c-gold) 119px,
+    var(--c-gold) 121px,
+    rgba(14, 14, 16, 0.55) 121px,
+    rgba(14, 14, 16, 0.55) 100%
+  );
+}
+
+.cropper__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  flex: 1 1 220px;
+  min-width: 220px;
+}
+
+.cropper__zoom-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--f-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-gold-deep);
+}
+
+.cropper__controls input[type="range"] {
+  width: 100%;
+  accent-color: var(--c-gold);
+}
+
+.cropper__actions {
+  display: flex;
+  gap: var(--s-3);
+}
+
+.cropper__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--c-ink-muted);
+}
+
+@media (max-width: 560px) {
+  .cropper { justify-content: center; }
+  .cropper__stage { width: 280px; height: 280px; }
+  .cropper__viewport {
+    background: radial-gradient(
+      circle at center,
+      transparent 0,
+      transparent 104px,
+      var(--c-gold) 104px,
+      var(--c-gold) 106px,
+      rgba(14, 14, 16, 0.55) 106px,
+      rgba(14, 14, 16, 0.55) 100%
+    );
+  }
+}
+
+
+/* -----------------------------------------------------
+   Drag-to-reorder (categories / locations tables)
+   Triggered by the "Ordonează" button on manager views.
+   ----------------------------------------------------- */
+
+/* Handle cell is present in markup but hidden until the page enters
+   reorder mode — keeps the table layout stable while still allowing us
+   to add the column via CSS. */
+.events-table th.col-drag,
+.events-table td.col-drag {
+  display: none;
+  width: 44px;
+  padding-left: var(--s-3);
+  padding-right: 0;
+}
+
+body.is-reorder .events-table th.col-drag,
+body.is-reorder .events-table td.col-drag {
+  display: table-cell;
+}
+
+/* While reordering, row-level actions and the "Adaugă" button recede so
+   the only affordance is the handle. */
+body.is-reorder .events-table .col-actions {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+body.is-reorder [data-hide-in-reorder] { display: none !important; }
+body:not(.is-reorder) [data-show-in-reorder] { display: none !important; }
+
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  color: var(--c-gold-deep);
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: background var(--t-smooth);
+}
+.drag-handle:hover { background: var(--c-gold-soft); }
+.drag-handle:active { cursor: grabbing; }
+.drag-handle .material-symbols-outlined { font-size: 1.3rem; }
+
+/* FLIP animation on sibling rows as the dragged row crosses midpoints. JS
+   sets transform:translateY(dy) with transition:none, forces reflow, then
+   clears the transform — the CSS rule below tweens it back to 0. */
+body.is-reorder .events-table tbody tr {
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+body.is-reorder .events-table tbody tr.is-dragging {
+  background: var(--c-cream-2);
+  box-shadow: 0 14px 32px rgba(14, 14, 16, 0.22), 0 0 0 2px var(--c-gold);
+  position: relative;
+  z-index: 5;
+  transition: none;
+}
+
+.reorder-banner {
+  display: none;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 0.85rem 1.1rem;
+  margin-bottom: var(--s-4);
+  background: var(--c-cream-2);
+  border: 1px dashed var(--c-gold);
+  border-radius: var(--r-md);
+  color: var(--c-gold-deep);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+body.is-reorder .reorder-banner { display: inline-flex; }
+.reorder-banner .material-symbols-outlined { color: var(--c-gold); }
+.reorder-banner strong { color: var(--c-ink); font-weight: 700; }
+
+/* Transient toast shown after a save attempt. Slides in from the top of
+   the table and fades out ~2.4s later. */
+.reorder-toast {
+  display: none;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: var(--s-3);
+  border-radius: var(--r-md);
+  font-family: var(--f-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 180ms ease, transform 180ms ease;
+  border: 1px solid transparent;
+}
+.reorder-toast.is-showing {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+.reorder-toast.is-hiding {
+  display: block;
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.reorder-toast[data-type="success"] {
+  background: var(--c-gold-soft);
+  border-color: var(--c-gold);
+  color: var(--c-gold-deep);
+}
+.reorder-toast[data-type="error"] {
+  background: rgba(184, 106, 106, 0.12);
+  border-color: rgba(184, 106, 106, 0.45);
+  color: #8E3A3A;
+}
+
+@media (max-width: 560px) {
+  .events-table th.col-drag,
+  .events-table td.col-drag { width: 40px; padding-left: var(--s-2); }
+  .drag-handle { width: 36px; height: 36px; } /* easier tap target */
+}

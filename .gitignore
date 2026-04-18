@@ -16,5 +16,9 @@
 /uploads/gallery/**
 !/uploads/gallery/.gitkeep
 
+# User-uploaded clergy photos — same rule as gallery.
+/uploads/clergy/**
+!/uploads/clergy/.gitkeep
+
 # Local/raw source photos — not tracked in version control
 /Poze_Biserica/

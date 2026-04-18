@@ -208,7 +208,7 @@ bsv_admin_header(
           <?php if (!$categories): ?>
             <p class="hint">
               Încă nu există categorii.
-              <a href="gallery-categories.php" style="color: var(--c-gold-deep);">Adăugați prima categorie</a>.
+              <a href="gallery.php?view=categories" style="color: var(--c-gold-deep);">Adăugați prima categorie</a>.
             </p>
           <?php else: ?>
             <div class="chip-picker" role="group" aria-label="Categorii">

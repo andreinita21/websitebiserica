@@ -1,4 +1,14 @@
 <?php
+/**
+ * Gallery admin — two sub-views driven by ?view=photos|categories.
+ *
+ *   photos      (default) — upload form + grid of photos, with category chips
+ *   categories            — inline manager for gallery_categories (modal editor)
+ *
+ * Everything that used to live in admin/gallery-categories.php now lives in
+ * this file under the "categories" sub-view so the nav stays flat.
+ */
+
 require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/gallery.php';
@@ -7,7 +17,25 @@ bsv_require_admin();
 
 $pdo = bsv_db();
 
-// --- Upload handler (POST, CSRF-protected) ---------------------------------
+$view = $_GET['view'] ?? 'photos';
+if (!in_array($view, ['photos', 'categories'], true)) $view = 'photos';
+
+// ---------------------------------------------------------------------------
+// POST handlers
+// ---------------------------------------------------------------------------
+
+$catErrors    = [];
+$catForm      = ['id' => 0, 'name' => '', 'slug' => ''];
+$catModalOpen = false;
+
+function bsv_ajax_json(array $payload, int $status = 200): void {
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// --- Upload photo(s) --------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'upload') {
     if (!bsv_csrf_check($_POST['_token'] ?? null)) {
         bsv_flash_set('error', 'Sesiunea a expirat. Încercați din nou.');
@@ -21,8 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
         ? array_map('intval', $_POST['categories']) : [];
     $isPublished = isset($_POST['is_published']) ? 1 : 0;
 
-    // Collect files — we always read from $_FILES['photos'] which may be
-    // either a single file or a batch (name='photos[]').
     $files = [];
     $raw   = $_FILES['photos'] ?? null;
     if ($raw && is_array($raw['name'])) {
@@ -47,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
         exit;
     }
 
-    $saved = 0;
+    $saved  = 0;
     $errors = [];
     foreach ($files as $file) {
         try {
@@ -84,14 +110,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
             bsv_gallery_set_photo_categories($photoId, $categoryIds);
         }
 
-        // Generate responsive variants automatically. A failure here must not
-        // abort the upload — the original still works — so we just collect
-        // any message and surface it to the admin.
         $variantResult = bsv_gallery_generate_variants($photoId);
         if ($variantResult['status'] === 'error') {
             $errors[] = ($file['name'] ?? 'imagine') . ' (variante): ' . $variantResult['message'];
         }
-
         $saved++;
     }
 
@@ -109,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
     exit;
 }
 
-// --- Batch regenerate handler ---------------------------------------------
+// --- Batch regenerate -------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'regenerate_all') {
     if (!bsv_csrf_check($_POST['_token'] ?? null)) {
         bsv_flash_set('error', 'Sesiunea a expirat. Încercați din nou.');
@@ -128,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'regen
     exit;
 }
 
-// --- Delete handler --------------------------------------------------------
+// --- Photo delete -----------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     if (!bsv_csrf_check($_POST['_token'] ?? null)) {
         bsv_flash_set('error', 'Sesiunea a expirat. Încercați din nou.');
@@ -139,7 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
             $stmt->execute([':id' => $id]);
             $row = $stmt->fetch();
             if ($row) {
-                // Remove resized variants first (their paths live in the DB row).
                 bsv_gallery_delete_variant_files($id);
                 $pdo->prepare('DELETE FROM gallery_photos WHERE id = :id')->execute([':id' => $id]);
                 bsv_gallery_delete_file((string)$row['file_path']);
@@ -151,74 +172,222 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     exit;
 }
 
-// --- Filter + fetch ---------------------------------------------------------
-$filterCat = isset($_GET['cat']) ? (int)$_GET['cat'] : 0;
-
-$sql = 'SELECT p.id, p.title, p.description, p.file_path, p.width, p.height,
-               p.variants, p.is_published, p.created_at
-        FROM gallery_photos p';
-$params = [];
-if ($filterCat > 0) {
-    $sql .= ' INNER JOIN gallery_photo_categories pc ON pc.photo_id = p.id
-              WHERE pc.category_id = :cat';
-    $params[':cat'] = $filterCat;
-}
-$sql .= ' ORDER BY p.position ASC, p.id DESC';
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$photos = $stmt->fetchAll();
-
-// Load categories attached to each photo in one shot.
-$photoCategories = [];
-if ($photos) {
-    $ids = array_column($photos, 'id');
-    $in  = implode(',', array_fill(0, count($ids), '?'));
-    $q = $pdo->prepare(
-        "SELECT pc.photo_id, c.id, c.name
-           FROM gallery_photo_categories pc
-           JOIN gallery_categories c ON c.id = pc.category_id
-          WHERE pc.photo_id IN ($in)
-          ORDER BY c.position ASC, c.name ASC"
-    );
-    $q->execute($ids);
-    foreach ($q->fetchAll() as $r) {
-        $photoCategories[(int)$r['photo_id']][] = $r;
+// --- Category create / update ----------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && in_array(($_POST['action'] ?? ''), ['cat_create', 'cat_update'], true)) {
+    $action = $_POST['action'];
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        $catErrors['_csrf'] = 'Sesiunea a expirat. Reîncărcați pagina.';
     }
+
+    $catForm['id']   = (int)($_POST['id'] ?? 0);
+    $catForm['name'] = trim((string)($_POST['name'] ?? ''));
+    $catForm['slug'] = trim((string)($_POST['slug'] ?? ''));
+
+    if ($catForm['name'] === '' || mb_strlen($catForm['name']) > 80) {
+        $catErrors['name'] = 'Numele este obligatoriu (maxim 80 de caractere).';
+    }
+    if ($catForm['slug'] === '') {
+        $catForm['slug'] = bsv_gallery_slugify($catForm['name']);
+    } else {
+        $catForm['slug'] = bsv_gallery_slugify($catForm['slug']);
+    }
+
+    if (!$catErrors) {
+        $catForm['slug'] = bsv_gallery_unique_slug($catForm['slug'], $catForm['id']);
+        $now = date('Y-m-d H:i:s');
+        if ($catForm['id'] > 0) {
+            // Position stays whatever the row already has — reorder happens via the drag UI.
+            $stmt = $pdo->prepare(
+                'UPDATE gallery_categories
+                    SET name = :name, slug = :slug, updated_at = :updated_at
+                  WHERE id = :id'
+            );
+            $stmt->execute([
+                ':name'       => $catForm['name'],
+                ':slug'       => $catForm['slug'],
+                ':updated_at' => $now,
+                ':id'         => $catForm['id'],
+            ]);
+            bsv_flash_set('success', 'Categoria a fost actualizată.');
+        } else {
+            $nextPos = (int)$pdo->query('SELECT COALESCE(MAX(position), 0) + 10 FROM gallery_categories')->fetchColumn();
+            $stmt = $pdo->prepare(
+                'INSERT INTO gallery_categories (name, slug, position, created_at, updated_at)
+                 VALUES (:name, :slug, :position, :created_at, :updated_at)'
+            );
+            $stmt->execute([
+                ':name'       => $catForm['name'],
+                ':slug'       => $catForm['slug'],
+                ':position'   => $nextPos,
+                ':created_at' => $now,
+                ':updated_at' => $now,
+            ]);
+            bsv_flash_set('success', 'Categoria a fost creată.');
+        }
+        header('Location: gallery.php?view=categories');
+        exit;
+    }
+
+    $view = 'categories';
+    $catModalOpen = true;
 }
 
+// --- Category reorder (AJAX) -----------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cat_reorder') {
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        bsv_ajax_json(['ok' => false, 'error' => 'Sesiunea a expirat'], 403);
+    }
+    $raw = (string)($_POST['order'] ?? '');
+    $ids = array_values(array_filter(array_map('intval', explode(',', $raw))));
+    if (!$ids) bsv_ajax_json(['ok' => false, 'error' => 'Listă de ordine goală'], 400);
+
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare('UPDATE gallery_categories SET position = :pos, updated_at = :now WHERE id = :id');
+        $now = date('Y-m-d H:i:s');
+        $pos = 10;
+        foreach ($ids as $id) {
+            $stmt->execute([':pos' => $pos, ':now' => $now, ':id' => $id]);
+            $pos += 10;
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        bsv_ajax_json(['ok' => false, 'error' => 'Eroare la salvare'], 500);
+    }
+    bsv_ajax_json(['ok' => true]);
+}
+
+// --- Category delete --------------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cat_delete') {
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        bsv_flash_set('error', 'Sesiunea a expirat. Încercați din nou.');
+    } else {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id > 0) {
+            $pdo->prepare('DELETE FROM gallery_categories WHERE id = :id')->execute([':id' => $id]);
+            // ON DELETE CASCADE cleans the pivot rows automatically.
+            bsv_flash_set('success', 'Categoria a fost ștearsă.');
+        }
+    }
+    header('Location: gallery.php?view=categories');
+    exit;
+}
+
+// ---------------------------------------------------------------------------
+// Data loading per view
+// ---------------------------------------------------------------------------
 $categories = bsv_gallery_all_categories();
 
-$counts = $pdo->query(
-    "SELECT
-        COUNT(*)                                                                AS total,
-        SUM(CASE WHEN is_published = 1 THEN 1 ELSE 0 END)                       AS published,
-        SUM(CASE WHEN is_published = 0 THEN 1 ELSE 0 END)                       AS drafts,
-        SUM(CASE WHEN variants IS NULL OR variants = '' THEN 1 ELSE 0 END)      AS unoptimized
-     FROM gallery_photos"
-)->fetch();
+$photos          = [];
+$photoCategories = [];
+$counts          = ['total' => 0, 'published' => 0, 'drafts' => 0, 'unoptimized' => 0];
+$filterCat       = isset($_GET['cat']) ? (int)$_GET['cat'] : 0;
+
+if ($view === 'photos') {
+    $sql = 'SELECT p.id, p.title, p.description, p.file_path, p.width, p.height,
+                   p.variants, p.is_published, p.created_at
+            FROM gallery_photos p';
+    $params = [];
+    if ($filterCat > 0) {
+        $sql .= ' INNER JOIN gallery_photo_categories pc ON pc.photo_id = p.id
+                  WHERE pc.category_id = :cat';
+        $params[':cat'] = $filterCat;
+    }
+    $sql .= ' ORDER BY p.position ASC, p.id DESC';
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $photos = $stmt->fetchAll();
+
+    if ($photos) {
+        $ids = array_column($photos, 'id');
+        $in  = implode(',', array_fill(0, count($ids), '?'));
+        $q = $pdo->prepare(
+            "SELECT pc.photo_id, c.id, c.name
+               FROM gallery_photo_categories pc
+               JOIN gallery_categories c ON c.id = pc.category_id
+              WHERE pc.photo_id IN ($in)
+              ORDER BY c.position ASC, c.name ASC"
+        );
+        $q->execute($ids);
+        foreach ($q->fetchAll() as $r) {
+            $photoCategories[(int)$r['photo_id']][] = $r;
+        }
+    }
+
+    $countsRow = $pdo->query(
+        "SELECT
+            COUNT(*)                                                                AS total,
+            SUM(CASE WHEN is_published = 1 THEN 1 ELSE 0 END)                       AS published,
+            SUM(CASE WHEN is_published = 0 THEN 1 ELSE 0 END)                       AS drafts,
+            SUM(CASE WHEN variants IS NULL OR variants = '' THEN 1 ELSE 0 END)      AS unoptimized
+         FROM gallery_photos"
+    )->fetch();
+    if ($countsRow) $counts = array_merge($counts, $countsRow);
+}
+
+$catRows = [];
+if ($view === 'categories') {
+    $catRows = $pdo->query(
+        'SELECT c.id, c.name, c.slug, c.position,
+                (SELECT COUNT(*) FROM gallery_photo_categories pc WHERE pc.category_id = c.id) AS photo_count
+           FROM gallery_categories c
+          ORDER BY c.position ASC, c.name ASC'
+    )->fetchAll();
+}
 
 $imgCaps = bsv_gallery_image_support();
+$csrf    = bsv_csrf_token();
 
-$csrf = bsv_csrf_token();
+$actions = '';
+if ($view === 'photos') {
+    $actions = '
+      <a href="#gallery-upload" class="adm-btn adm-btn--primary">
+        <span class="material-symbols-outlined" aria-hidden="true">cloud_upload</span>
+        <span>Încarcă fotografii</span>
+      </a>';
+} else {
+    $actions = '
+      <button type="button" class="adm-btn adm-btn--ghost" data-enter-reorder data-hide-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">reorder</span>
+        <span>Ordonează</span>
+      </button>
+      <button type="button" class="adm-btn adm-btn--primary" data-open-modal="gal-cat-modal" data-modal-mode="create" data-hide-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">add</span>
+        <span>Adaugă categorie</span>
+      </button>
+      <button type="button" class="adm-btn adm-btn--ghost" data-cancel-reorder data-show-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        <span>Anulează</span>
+      </button>
+      <button type="button" class="adm-btn adm-btn--primary" data-save-reorder data-show-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">save</span>
+        <span>Salvează ordinea</span>
+      </button>';
+}
 
-$actions = '
-  <a href="gallery-categories.php" class="adm-btn adm-btn--ghost">
-    <span class="material-symbols-outlined" aria-hidden="true">folder_managed</span>
-    <span>Gestionează categoriile</span>
-  </a>
-  <a href="#gallery-upload" class="adm-btn adm-btn--primary">
-    <span class="material-symbols-outlined" aria-hidden="true">cloud_upload</span>
-    <span>Încarcă fotografii</span>
-  </a>';
+$headerTitle = $view === 'categories' ? 'Categorii galerie' : 'Galerie';
+$headerSub   = $view === 'categories'
+    ? 'Creați, redenumiți sau ștergeți categoriile folosite pentru a organiza fotografiile.'
+    : 'Adăugați, organizați și publicați fotografii pentru pagina publică de galerie.';
 
-bsv_admin_header(
-    'Galerie',
-    'Adăugați, organizați și publicați fotografii pentru pagina publică de galerie.',
-    $actions,
-    'gallery'
-);
+bsv_admin_header($headerTitle, $headerSub, $actions, 'gallery');
 ?>
+
+<nav class="admin-subnav" aria-label="Sub-secțiuni Galerie">
+  <a href="gallery.php?view=photos" class="admin-subnav__link <?= $view === 'photos' ? 'is-active' : '' ?>">
+    <span class="material-symbols-outlined" aria-hidden="true">photo_library</span>
+    <span>Fotografii</span>
+  </a>
+  <a href="gallery.php?view=categories" class="admin-subnav__link <?= $view === 'categories' ? 'is-active' : '' ?>">
+    <span class="material-symbols-outlined" aria-hidden="true">sell</span>
+    <span>Categorii</span>
+  </a>
+</nav>
+
+<?php if ($view === 'photos'): ?>
 
 <section class="admin-card" id="gallery-upload">
   <div class="admin-card__head">
@@ -255,7 +424,7 @@ bsv_admin_header(
           <?php if (!$categories): ?>
             <p class="hint" style="grid-column: 1 / -1;">
               Încă nu există categorii.
-              <a href="gallery-categories.php" style="color: var(--c-gold-deep);">Adăugați prima categorie</a>.
+              <a href="gallery.php?view=categories" style="color: var(--c-gold-deep);">Adăugați prima categorie</a>.
             </p>
           <?php else: ?>
             <?php foreach ($categories as $c): ?>
@@ -360,7 +529,6 @@ bsv_admin_header(
     <?php foreach ($photos as $p):
       $cats = $photoCategories[(int)$p['id']] ?? [];
       $pVariants = bsv_gallery_decode_variants($p['variants'] ?? null);
-      // Pick the smallest WebP ≥ 400px for the admin thumbnail.
       $thumbSrc = $p['file_path'];
       foreach ($pVariants as $v) {
         if (($v['fmt'] ?? '') === 'webp' && (int)($v['w'] ?? 0) >= 400) {
@@ -419,6 +587,388 @@ bsv_admin_header(
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
+
+<?php else: /* view === 'categories' */ ?>
+
+<?php if (!empty($catErrors['_csrf'])): ?>
+  <div class="flash flash--error">
+    <span class="material-symbols-outlined" aria-hidden="true">error</span>
+    <span><?= h($catErrors['_csrf']) ?></span>
+  </div>
+<?php endif; ?>
+
+<?php if (!$catRows): ?>
+  <div class="table-empty">
+    <span class="material-symbols-outlined" style="font-size: 2.4rem; color: var(--c-gold);" aria-hidden="true">folder</span>
+    <h3>Nu există încă nicio categorie</h3>
+    <p>Folosiți butonul „Adaugă categorie” pentru a crea prima.</p>
+    <button type="button" class="adm-btn adm-btn--primary" data-open-modal="gal-cat-modal" data-modal-mode="create">
+      <span class="material-symbols-outlined" aria-hidden="true">add</span>
+      <span>Adaugă categorie</span>
+    </button>
+  </div>
+<?php else: ?>
+  <div class="reorder-banner">
+    <span class="material-symbols-outlined" aria-hidden="true">drag_indicator</span>
+    <span><strong>Mod ordonare:</strong> Trageți rândurile pentru a schimba ordinea. Apăsați „Salvează ordinea” când ați terminat.</span>
+  </div>
+  <table class="events-table" data-sortable="cat_reorder">
+    <thead>
+      <tr>
+        <th class="col-drag" aria-hidden="true"></th>
+        <th>Nume</th>
+        <th>Fotografii</th>
+        <th class="col-actions">Acțiuni</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($catRows as $c): ?>
+        <tr data-sortable-id="<?= (int)$c['id'] ?>">
+          <td class="col-drag">
+            <span class="drag-handle" data-drag-handle aria-label="Trage pentru a reordona" title="Trage pentru a reordona">
+              <span class="material-symbols-outlined" aria-hidden="true">drag_indicator</span>
+            </span>
+          </td>
+          <td>
+            <div class="title-cell">
+              <strong><?= h($c['name']) ?></strong>
+              <span><code><?= h($c['slug']) ?></code></span>
+            </div>
+          </td>
+          <td><span class="pill"><?= (int)$c['photo_count'] ?> foto</span></td>
+          <td class="col-actions">
+            <button type="button"
+                    class="adm-btn adm-btn--ghost adm-btn--sm"
+                    data-open-modal="gal-cat-modal"
+                    data-modal-mode="edit"
+                    data-id="<?= (int)$c['id'] ?>"
+                    data-name="<?= h($c['name']) ?>"
+                    data-slug="<?= h($c['slug']) ?>">
+              <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+              <span>Editează</span>
+            </button>
+            <form method="post" class="inline-form" action="gallery.php?view=categories"
+                  onsubmit="return confirm('Ștergeți categoria „<?= h(addslashes($c['name'])) ?>”? Fotografiile rămân, dar își pierd această etichetă.');">
+              <input type="hidden" name="action" value="cat_delete">
+              <input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+              <input type="hidden" name="_token" value="<?= h($csrf) ?>">
+              <button type="submit" class="adm-btn adm-btn--danger adm-btn--sm">
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                <span>Șterge</span>
+              </button>
+            </form>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+<?php endif; ?>
+
+<?php endif; /* /view */ ?>
+
+<!-- ====================================================================== -->
+<!-- Gallery category modal                                                  -->
+<!-- ====================================================================== -->
+<dialog class="modal" id="gal-cat-modal" data-modal<?= $catModalOpen ? ' data-autoopen' : '' ?> aria-labelledby="gal-cat-modal-title">
+  <form method="post" action="gallery.php?view=categories" class="modal__dialog" novalidate data-modal-form>
+    <header class="modal__head">
+      <h2 id="gal-cat-modal-title" data-modal-title>Editează categoria</h2>
+      <button type="button" class="modal__close" data-close-modal aria-label="Închide">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </header>
+
+    <div class="modal__body">
+      <div class="form-grid form-grid--modal">
+        <div class="field field-full">
+          <label for="gal-cat-name">Nume <span class="req">*</span></label>
+          <input type="text" id="gal-cat-name" name="name" maxlength="80" required
+                 value="<?= h($catForm['name']) ?>"
+                 placeholder="Ex.: Praznice, Comunitate, Biserica">
+          <?php if (!empty($catErrors['name'])): ?><span class="err-msg"><?= h($catErrors['name']) ?></span><?php endif; ?>
+        </div>
+
+        <div class="field field-full">
+          <label for="gal-cat-slug">Slug</label>
+          <input type="text" id="gal-cat-slug" name="slug" maxlength="64"
+                 value="<?= h($catForm['slug']) ?>"
+                 placeholder="ex.: praznice">
+          <span class="hint">Folosit în URL. Generat automat dacă îl lăsați gol.</span>
+        </div>
+      </div>
+    </div>
+
+    <footer class="modal__foot">
+      <input type="hidden" name="_token" value="<?= h($csrf) ?>">
+      <input type="hidden" name="action" value="cat_create" data-modal-action>
+      <input type="hidden" name="id" value="0" data-modal-id>
+
+      <button type="button" class="adm-btn adm-btn--ghost" data-close-modal>
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        <span>Anulează</span>
+      </button>
+      <button type="submit" class="adm-btn adm-btn--primary">
+        <span class="material-symbols-outlined" aria-hidden="true">save</span>
+        <span data-modal-submit>Salvează</span>
+      </button>
+    </footer>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  var modals = document.querySelectorAll('[data-modal]');
+  if (!modals.length) return;
+
+  function openModal(modal) {
+    if (typeof modal.showModal === 'function') modal.showModal();
+    else modal.setAttribute('open', '');
+    var firstInput = modal.querySelector('input[type="text"], input[type="number"]');
+    if (firstInput) setTimeout(function () { firstInput.focus(); firstInput.select && firstInput.select(); }, 40);
+  }
+  function closeModal(modal) {
+    if (typeof modal.close === 'function') modal.close();
+    else modal.removeAttribute('open');
+  }
+
+  document.querySelectorAll('[data-open-modal]').forEach(function (trigger) {
+    trigger.addEventListener('click', function () {
+      var id = trigger.getAttribute('data-open-modal');
+      var modal = document.getElementById(id);
+      if (!modal) return;
+
+      var mode = trigger.getAttribute('data-modal-mode') || 'create';
+      var form = modal.querySelector('[data-modal-form]');
+      if (!form) return;
+
+      var title  = modal.querySelector('[data-modal-title]');
+      var action = form.querySelector('[data-modal-action]');
+      var idInp  = form.querySelector('[data-modal-id]');
+      var submit = form.querySelector('[data-modal-submit]');
+
+      if (mode === 'edit') {
+        if (title)  title.textContent  = 'Editează categoria';
+        if (submit) submit.textContent = 'Salvează modificările';
+        if (action) action.value = 'cat_update';
+        if (idInp)  idInp.value = trigger.getAttribute('data-id') || '0';
+      } else {
+        if (title)  title.textContent  = 'Adaugă categorie';
+        if (submit) submit.textContent = 'Adaugă categoria';
+        if (action) action.value = 'cat_create';
+        if (idInp)  idInp.value = '0';
+      }
+
+      Array.prototype.forEach.call(trigger.attributes, function (attr) {
+        if (!attr.name.startsWith('data-')) return;
+        var key = attr.name.slice(5);
+        if (['open-modal', 'modal-mode', 'id'].indexOf(key) !== -1) return;
+        var input = form.querySelector('[name="' + key + '"]');
+        if (input) input.value = attr.value;
+      });
+
+      if (mode === 'create') {
+        form.querySelectorAll('input[type="text"], input[type="number"]').forEach(function (inp) {
+          if (inp.name === 'position') inp.value = '0';
+          else inp.value = '';
+        });
+      }
+
+      form.querySelectorAll('.err-msg').forEach(function (el) { el.remove(); });
+      openModal(modal);
+    });
+  });
+
+  modals.forEach(function (modal) {
+    modal.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+      btn.addEventListener('click', function () { closeModal(modal); });
+    });
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) closeModal(modal);
+    });
+  });
+
+  document.querySelectorAll('[data-autoopen]').forEach(function (modal) {
+    openModal(modal);
+  });
+})();
+</script>
+
+<script>
+/* Drag-to-reorder for gallery_categories (deferred save + FLIP animation).
+ * Mirrors the controller on the events admin page — see admin/index.php for
+ * the fully annotated version. */
+(function () {
+  var body  = document.body;
+  var table = document.querySelector('table[data-sortable]');
+
+  if (!table) return;
+  var tbody  = table.querySelector('tbody');
+  var action = table.getAttribute('data-sortable');
+  var csrf   = <?= json_encode($csrf) ?>;
+  if (!tbody || !action) return;
+
+  var baseline = null;
+  var drag     = null;
+
+  document.querySelectorAll('[data-enter-reorder]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      baseline = snapshotOrder();
+      body.classList.add('is-reorder');
+    });
+  });
+  document.querySelectorAll('[data-cancel-reorder]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (baseline) animatedRestore(baseline);
+      baseline = null;
+      body.classList.remove('is-reorder');
+    });
+  });
+  document.querySelectorAll('[data-save-reorder]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var current = snapshotOrder();
+      if (!baseline || current.join(',') === baseline.join(',')) {
+        baseline = null;
+        body.classList.remove('is-reorder');
+        return;
+      }
+      btn.disabled = true;
+      persistOrder(current, function (ok) {
+        btn.disabled = false;
+        if (ok) {
+          baseline = null;
+          body.classList.remove('is-reorder');
+          toast('Ordine salvată.', 'success');
+        } else {
+          toast('Nu am putut salva. Încercați din nou.', 'error');
+        }
+      });
+    });
+  });
+
+  function snapshotOrder() {
+    return Array.prototype.map.call(
+      tbody.querySelectorAll('tr[data-sortable-id]'),
+      function (r) { return r.getAttribute('data-sortable-id'); }
+    );
+  }
+
+  function animatedRestore(ids) {
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-sortable-id]'));
+    var oldTops = new Map();
+    rows.forEach(function (r) { oldTops.set(r, r.getBoundingClientRect().top); });
+    ids.forEach(function (id) {
+      var row = tbody.querySelector('tr[data-sortable-id="' + id + '"]');
+      if (row) tbody.appendChild(row);
+    });
+    flipAnimate(rows, oldTops);
+  }
+
+  function flipAnimate(rows, oldTops) {
+    rows.forEach(function (r) {
+      var oldTop = oldTops.get(r);
+      if (oldTop == null) return;
+      var newTop = r.getBoundingClientRect().top;
+      var dy = oldTop - newTop;
+      if (Math.abs(dy) < 0.5) return;
+      r.style.transition = 'none';
+      r.style.transform  = 'translateY(' + dy + 'px)';
+      r.getBoundingClientRect();
+      r.style.transition = '';
+      r.style.transform  = '';
+    });
+  }
+
+  function persistOrder(ids, done) {
+    var fd = new FormData();
+    fd.append('action', action);
+    fd.append('order',  ids.join(','));
+    fd.append('_token', csrf);
+    fetch('gallery.php?view=categories', {
+      method: 'POST', body: fd, credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+    })
+    .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+    .then(function (j) { done(!!(j && j.ok)); })
+    .catch(function () { done(false); });
+  }
+
+  function toast(msg, type) {
+    var t = document.querySelector('.reorder-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.className = 'reorder-toast';
+      (table.parentNode || document.body).insertBefore(t, table);
+    }
+    t.textContent = msg;
+    t.setAttribute('data-type', type);
+    t.classList.remove('is-hiding');
+    t.classList.add('is-showing');
+    clearTimeout(t._hideT);
+    t._hideT = setTimeout(function () {
+      t.classList.remove('is-showing');
+      t.classList.add('is-hiding');
+    }, 2400);
+  }
+
+  tbody.addEventListener('pointerdown', function (e) {
+    if (!body.classList.contains('is-reorder')) return;
+    var handle = e.target.closest('[data-drag-handle]');
+    if (!handle) return;
+    var row = handle.closest('tr[data-sortable-id]');
+    if (!row) return;
+    e.preventDefault();
+    drag = { row: row };
+    row.classList.add('is-dragging');
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+
+  tbody.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var y = e.clientY;
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-sortable-id]'));
+    if (rows.length < 2) return;
+
+    var target;
+    var resolved = false;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (r === drag.row) continue;
+      var rect = r.getBoundingClientRect();
+      if (y < rect.top || y > rect.bottom) continue;
+      var mid = rect.top + rect.height / 2;
+      target = (y < mid) ? r : r.nextElementSibling;
+      resolved = true;
+      break;
+    }
+    if (!resolved) {
+      var first = rows[0].getBoundingClientRect();
+      var last  = rows[rows.length - 1].getBoundingClientRect();
+      if (y < first.top)      target = rows[0];
+      else if (y > last.bottom) target = null;
+      else return;
+    }
+    if (drag.row === target || drag.row.nextSibling === target) return;
+
+    var oldTops = new Map();
+    rows.forEach(function (r) {
+      if (r === drag.row) return;
+      oldTops.set(r, r.getBoundingClientRect().top);
+    });
+
+    tbody.insertBefore(drag.row, target);
+
+    flipAnimate(rows.filter(function (r) { return r !== drag.row; }), oldTops);
+  });
+
+  function endDrag() {
+    if (!drag) return;
+    drag.row.classList.remove('is-dragging');
+    drag = null;
+  }
+  tbody.addEventListener('pointerup', endDrag);
+  tbody.addEventListener('pointercancel', endDrag);
+})();
+</script>
 
 <script>
 (function () {

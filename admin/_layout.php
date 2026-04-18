@@ -96,13 +96,9 @@ function bsv_admin_header(string $title, string $subtitle = '', ?string $actions
           <span class="material-symbols-outlined" aria-hidden="true">photo_library</span>
           <span>Galerie</span>
         </a>
-        <a href="categories.php" class="admin-section-nav__link <?= $activeSection === 'categories' ? 'is-active' : '' ?>">
-          <span class="material-symbols-outlined" aria-hidden="true">sell</span>
-          <span>Categorii</span>
-        </a>
-        <a href="locations.php" class="admin-section-nav__link <?= $activeSection === 'locations' ? 'is-active' : '' ?>">
-          <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
-          <span>Locații</span>
+        <a href="clergy.php" class="admin-section-nav__link <?= $activeSection === 'clergy' ? 'is-active' : '' ?>">
+          <span class="material-symbols-outlined" aria-hidden="true">groups</span>
+          <span>Cler</span>
         </a>
         <a href="contact.php" class="admin-section-nav__link <?= $activeSection === 'contact' ? 'is-active' : '' ?>">
           <span class="material-symbols-outlined" aria-hidden="true">contact_mail</span>

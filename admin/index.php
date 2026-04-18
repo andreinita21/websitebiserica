@@ -1,12 +1,28 @@
 <?php
+/**
+ * Events admin — three sub-views driven by ?view=list|categories|locations.
+ *
+ *   list        (default) — filterable table of events (create/edit/delete)
+ *   categories            — inline manager for event_categories (modal editor)
+ *   locations             — inline manager for event_locations   (modal editor)
+ *
+ * The manager sub-views live here so the nav stays flat: categories and
+ * locations used to have their own top-level admin pages, but they only make
+ * sense scoped to "Evenimente".
+ */
+
 require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/db.php';
 
 bsv_require_admin();
 
-// Helper: build a link that preserves the current filter state but overrides
-// one or more params. Pass `null` as a value to remove a param.
-function bsv_events_url(array $current, array $overrides): string {
+$view = $_GET['view'] ?? 'list';
+$allowedViews = ['list', 'categories', 'locations'];
+if (!in_array($view, $allowedViews, true)) $view = 'list';
+
+// --- URL helper that preserves current filters but lets callers override ----
+function bsv_events_url(array $current, array $overrides): string
+{
     $params = $current;
     foreach ($overrides as $k => $v) {
         if ($v === null || $v === '') unset($params[$k]);
@@ -15,20 +31,40 @@ function bsv_events_url(array $current, array $overrides): string {
     return 'index.php' . ($params ? '?' . http_build_query($params) : '');
 }
 
-$currentQuery = [];
+$currentQuery = ['view' => $view];
 foreach (['filter', 'q', 'cat', 'rec'] as $k) {
     if (!empty($_GET[$k])) $currentQuery[$k] = (string)$_GET[$k];
 }
 
-// --- Delete handler (POST only, CSRF-protected) -----------------------------
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
+// ---------------------------------------------------------------------------
+// POST handlers — namespaced by action so all three sub-views can share this file.
+// ---------------------------------------------------------------------------
+
+// Validation state kept across renders so the modal can re-open with errors.
+$catErrors    = [];
+$catForm      = ['id' => 0, 'slug' => '', 'label' => '', 'color' => '#C9A24A'];
+$catModalOpen = false;
+
+$locErrors    = [];
+$locForm      = ['id' => 0, 'name' => ''];
+$locModalOpen = false;
+
+// Small JSON responder for the AJAX reorder endpoints.
+function bsv_ajax_json(array $payload, int $status = 200): void {
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// --- Event delete (unchanged from previous behaviour) ----------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_event') {
     if (!bsv_csrf_check($_POST['_token'] ?? null)) {
         bsv_flash_set('error', 'Sesiunea a expirat. Încercați din nou.');
     } else {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
-            $stmt = bsv_db()->prepare('DELETE FROM events WHERE id = :id');
-            $stmt->execute([':id' => $id]);
+            bsv_db()->prepare('DELETE FROM events WHERE id = :id')->execute([':id' => $id]);
             bsv_flash_set('success', 'Evenimentul a fost șters.');
         }
     }
@@ -36,89 +72,312 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     exit;
 }
 
-// --- Filter + fetch ---------------------------------------------------------
+// --- Category create / update ----------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && in_array(($_POST['action'] ?? ''), ['cat_create', 'cat_update'], true)) {
+    $action = $_POST['action'];
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        $catErrors['_csrf'] = 'Sesiunea a expirat. Reîncărcați pagina.';
+    }
+    $catForm = [
+        'id'    => (int)($_POST['id'] ?? 0),
+        'slug'  => strtolower(trim((string)($_POST['slug'] ?? ''))),
+        'label' => trim((string)($_POST['label'] ?? '')),
+        'color' => trim((string)($_POST['color'] ?? '#C9A24A')),
+    ];
+
+    if (!preg_match('/^[a-z0-9_-]{2,40}$/', $catForm['slug'])) {
+        $catErrors['slug'] = 'Slug invalid — doar a–z, 0–9, "-" și "_" (2–40 caractere).';
+    }
+    if ($catForm['label'] === '' || mb_strlen($catForm['label']) > 120) {
+        $catErrors['label'] = 'Numele este obligatoriu (maxim 120 caractere).';
+    }
+    if ($catForm['color'] !== '' && !preg_match('/^#[0-9a-f]{6}$/i', $catForm['color'])) {
+        $catErrors['color'] = 'Culoare invalidă — folosiți formatul #RRGGBB.';
+    }
+    if (empty($catErrors['slug'])) {
+        $uniq = bsv_db()->prepare('SELECT id FROM event_categories WHERE slug = :s AND id != :id');
+        $uniq->execute([':s' => $catForm['slug'], ':id' => $action === 'cat_update' ? $catForm['id'] : 0]);
+        if ($uniq->fetchColumn()) {
+            $catErrors['slug'] = 'Acest slug este deja folosit de altă categorie.';
+        }
+    }
+
+    if (!$catErrors) {
+        $now = date('Y-m-d H:i:s');
+        $colorVal = $catForm['color'] !== '' ? $catForm['color'] : null;
+        if ($action === 'cat_update' && $catForm['id'] > 0) {
+            $oldStmt = bsv_db()->prepare('SELECT slug FROM event_categories WHERE id = :id');
+            $oldStmt->execute([':id' => $catForm['id']]);
+            $oldSlug = (string)$oldStmt->fetchColumn();
+
+            // Position stays whatever the row already has — reorder happens via the drag UI.
+            $upd = bsv_db()->prepare(
+                'UPDATE event_categories
+                    SET slug = :slug, label = :label, color = :color, updated_at = :now
+                  WHERE id = :id'
+            );
+            $upd->execute([
+                ':slug' => $catForm['slug'], ':label' => $catForm['label'],
+                ':color' => $colorVal, ':now' => $now, ':id' => $catForm['id'],
+            ]);
+            if ($oldSlug !== '' && $oldSlug !== $catForm['slug']) {
+                $re = bsv_db()->prepare('UPDATE events SET category = :new WHERE category = :old');
+                $re->execute([':new' => $catForm['slug'], ':old' => $oldSlug]);
+            }
+            bsv_flash_set('success', 'Categoria a fost actualizată.');
+        } else {
+            // New rows go to the end of the list. The user can drag them up later.
+            $nextPos = (int)bsv_db()->query('SELECT COALESCE(MAX(position), 0) + 10 FROM event_categories')->fetchColumn();
+            $ins = bsv_db()->prepare(
+                'INSERT INTO event_categories (slug, label, color, position, created_at, updated_at)
+                 VALUES (:slug, :label, :color, :pos, :now, :now)'
+            );
+            $ins->execute([
+                ':slug' => $catForm['slug'], ':label' => $catForm['label'],
+                ':color' => $colorVal, ':pos' => $nextPos, ':now' => $now,
+            ]);
+            bsv_flash_set('success', 'Categoria a fost creată.');
+        }
+        header('Location: index.php?view=categories');
+        exit;
+    }
+
+    // Validation error → re-render categories view with modal open.
+    $view = 'categories';
+    $catModalOpen = true;
+}
+
+// --- Category delete -------------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cat_delete') {
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        bsv_flash_set('error', 'Sesiunea a expirat. Încercați din nou.');
+    } else {
+        $id = (int)($_POST['id'] ?? 0);
+        $slugStmt = bsv_db()->prepare('SELECT slug FROM event_categories WHERE id = :id');
+        $slugStmt->execute([':id' => $id]);
+        $slug = (string)$slugStmt->fetchColumn();
+        if ($slug !== '') {
+            $usageStmt = bsv_db()->prepare('SELECT COUNT(*) FROM events WHERE category = :s');
+            $usageStmt->execute([':s' => $slug]);
+            $usage = (int)$usageStmt->fetchColumn();
+            if ($usage > 0) {
+                bsv_flash_set('error', "Categoria este folosită de $usage eveniment(e). Mutați-le pe altă categorie înainte de ștergere.");
+            } else {
+                bsv_db()->prepare('DELETE FROM event_categories WHERE id = :id')->execute([':id' => $id]);
+                bsv_flash_set('success', 'Categoria a fost ștearsă.');
+            }
+        }
+    }
+    header('Location: index.php?view=categories');
+    exit;
+}
+
+// --- Location create / update ----------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && in_array(($_POST['action'] ?? ''), ['loc_create', 'loc_update'], true)) {
+    $action = $_POST['action'];
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        $locErrors['_csrf'] = 'Sesiunea a expirat. Reîncărcați pagina.';
+    }
+    $locForm = [
+        'id'   => (int)($_POST['id'] ?? 0),
+        'name' => trim((string)($_POST['name'] ?? '')),
+    ];
+
+    if ($locForm['name'] === '' || mb_strlen($locForm['name']) > 200) {
+        $locErrors['name'] = 'Numele este obligatoriu (maxim 200 caractere).';
+    }
+    if (empty($locErrors['name'])) {
+        $uniq = bsv_db()->prepare('SELECT id FROM event_locations WHERE name = :n AND id != :id');
+        $uniq->execute([':n' => $locForm['name'], ':id' => $action === 'loc_update' ? $locForm['id'] : 0]);
+        if ($uniq->fetchColumn()) {
+            $locErrors['name'] = 'O locație cu acest nume există deja.';
+        }
+    }
+
+    if (!$locErrors) {
+        $now = date('Y-m-d H:i:s');
+        if ($action === 'loc_update' && $locForm['id'] > 0) {
+            $oldStmt = bsv_db()->prepare('SELECT name FROM event_locations WHERE id = :id');
+            $oldStmt->execute([':id' => $locForm['id']]);
+            $oldName = (string)$oldStmt->fetchColumn();
+
+            $upd = bsv_db()->prepare(
+                'UPDATE event_locations
+                    SET name = :name, updated_at = :now
+                  WHERE id = :id'
+            );
+            $upd->execute([
+                ':name' => $locForm['name'], ':now' => $now, ':id' => $locForm['id'],
+            ]);
+            if ($oldName !== '' && $oldName !== $locForm['name']) {
+                $re = bsv_db()->prepare('UPDATE events SET location = :new WHERE location = :old');
+                $re->execute([':new' => $locForm['name'], ':old' => $oldName]);
+            }
+            bsv_flash_set('success', 'Locația a fost actualizată.');
+        } else {
+            $nextPos = (int)bsv_db()->query('SELECT COALESCE(MAX(position), 0) + 10 FROM event_locations')->fetchColumn();
+            $ins = bsv_db()->prepare(
+                'INSERT INTO event_locations (name, position, created_at, updated_at)
+                 VALUES (:name, :pos, :now, :now)'
+            );
+            $ins->execute([
+                ':name' => $locForm['name'], ':pos' => $nextPos, ':now' => $now,
+            ]);
+            bsv_flash_set('success', 'Locația a fost adăugată în listă.');
+        }
+        header('Location: index.php?view=locations');
+        exit;
+    }
+
+    $view = 'locations';
+    $locModalOpen = true;
+}
+
+// --- Reorder (AJAX) --------------------------------------------------------
+// Body: action=cat_reorder|loc_reorder, order=1,3,2,5, _token=...
+// Response: {"ok": true} on success, {"ok": false, "error": "..."} on failure.
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && in_array(($_POST['action'] ?? ''), ['cat_reorder', 'loc_reorder'], true)) {
+    $action = $_POST['action'];
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        bsv_ajax_json(['ok' => false, 'error' => 'Sesiunea a expirat'], 403);
+    }
+    $raw = (string)($_POST['order'] ?? '');
+    $ids = array_values(array_filter(array_map('intval', explode(',', $raw))));
+    if (!$ids) bsv_ajax_json(['ok' => false, 'error' => 'Listă de ordine goală'], 400);
+
+    $table = $action === 'cat_reorder' ? 'event_categories' : 'event_locations';
+    $pdo = bsv_db();
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("UPDATE {$table} SET position = :pos, updated_at = :now WHERE id = :id");
+        $now = date('Y-m-d H:i:s');
+        $pos = 10;
+        foreach ($ids as $id) {
+            $stmt->execute([':pos' => $pos, ':now' => $now, ':id' => $id]);
+            $pos += 10;
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        bsv_ajax_json(['ok' => false, 'error' => 'Eroare la salvare'], 500);
+    }
+    bsv_ajax_json(['ok' => true]);
+}
+
+// --- Location delete -------------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'loc_delete') {
+    if (!bsv_csrf_check($_POST['_token'] ?? null)) {
+        bsv_flash_set('error', 'Sesiunea a expirat. Încercați din nou.');
+    } else {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id > 0) {
+            bsv_db()->prepare('DELETE FROM event_locations WHERE id = :id')->execute([':id' => $id]);
+            bsv_flash_set('success', 'Locația a fost ștearsă din listă.');
+        }
+    }
+    header('Location: index.php?view=locations');
+    exit;
+}
+
+// ---------------------------------------------------------------------------
+// Data loading per view
+// ---------------------------------------------------------------------------
+$events = [];
+$counts = ['upcoming' => 0, 'past' => 0, 'drafts' => 0, 'total' => 0];
 $filter = $_GET['filter'] ?? 'upcoming';
 $allowedFilters = ['upcoming', 'past', 'drafts', 'all'];
 if (!in_array($filter, $allowedFilters, true)) $filter = 'upcoming';
-
-$q         = trim((string)($_GET['q']   ?? ''));
+$q = trim((string)($_GET['q'] ?? ''));
 $catFilter = trim((string)($_GET['cat'] ?? ''));
 $recFilter = trim((string)($_GET['rec'] ?? ''));
 $allowedRec = ['weekly', 'monthly', 'yearly', 'none'];
 if ($recFilter !== '' && !in_array($recFilter, $allowedRec, true)) $recFilter = '';
 if ($catFilter !== '' && !bsv_valid_category($catFilter)) $catFilter = '';
+$hasSecondary = $q !== '' || $catFilter !== '' || $recFilter !== '';
 
-$sql = 'SELECT id, title, description, event_date, start_time, end_time, location,
-               category, recurrence_type, recurrence_end_date, is_published
-        FROM events';
-$where = [];
-$params = [];
+if ($view === 'list') {
+    $sql = 'SELECT id, title, description, event_date, start_time, end_time, location,
+                   category, recurrence_type, recurrence_end_date, is_published
+            FROM events';
+    $where = [];
+    $params = [];
 
-// An event is "active/upcoming" if its anchor is in the future OR it is a
-// recurring series whose end date has not yet passed (or is open-ended).
-$activeClause = "(
-    (recurrence_type IS NULL AND event_date >= date('now','localtime'))
-    OR
-    (recurrence_type IS NOT NULL
-     AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now','localtime')))
-)";
+    $activeClause = "(
+        (recurrence_type IS NULL AND event_date >= date('now','localtime'))
+        OR
+        (recurrence_type IS NOT NULL
+         AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now','localtime')))
+    )";
 
-switch ($filter) {
-    case 'upcoming':
-        $where[] = 'is_published = 1';
-        $where[] = $activeClause;
-        break;
-    case 'past':
-        $where[] = 'is_published = 1';
-        $where[] = 'NOT ' . $activeClause;
-        break;
-    case 'drafts':
-        $where[] = 'is_published = 0';
-        break;
-}
-
-if ($q !== '') {
-    $where[] = '(title LIKE :q OR description LIKE :q OR location LIKE :q)';
-    $params[':q'] = '%' . $q . '%';
-}
-if ($catFilter !== '') {
-    $where[] = 'category = :cat';
-    $params[':cat'] = $catFilter;
-}
-if ($recFilter !== '') {
-    if ($recFilter === 'none') {
-        $where[] = 'recurrence_type IS NULL';
-    } else {
-        $where[] = 'recurrence_type = :rec';
-        $params[':rec'] = $recFilter;
+    switch ($filter) {
+        case 'upcoming': $where[] = 'is_published = 1'; $where[] = $activeClause; break;
+        case 'past':     $where[] = 'is_published = 1'; $where[] = 'NOT ' . $activeClause; break;
+        case 'drafts':   $where[] = 'is_published = 0'; break;
     }
+    if ($q !== '') {
+        $where[] = '(title LIKE :q OR description LIKE :q OR location LIKE :q)';
+        $params[':q'] = '%' . $q . '%';
+    }
+    if ($catFilter !== '') {
+        $where[] = 'category = :cat';
+        $params[':cat'] = $catFilter;
+    }
+    if ($recFilter !== '') {
+        if ($recFilter === 'none') {
+            $where[] = 'recurrence_type IS NULL';
+        } else {
+            $where[] = 'recurrence_type = :rec';
+            $params[':rec'] = $recFilter;
+        }
+    }
+    if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
+    $sql .= ' ORDER BY event_date ' . ($filter === 'past' ? 'DESC' : 'ASC') . ', start_time ASC';
+
+    $stmt = bsv_db()->prepare($sql);
+    $stmt->execute($params);
+    $events = $stmt->fetchAll();
+
+    $countsRow = bsv_db()->query(
+        "SELECT
+            SUM(CASE WHEN is_published = 1 AND (
+                    (recurrence_type IS NULL AND event_date >= date('now','localtime'))
+                    OR (recurrence_type IS NOT NULL
+                        AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now','localtime')))
+                ) THEN 1 ELSE 0 END) AS upcoming,
+            SUM(CASE WHEN is_published = 1 AND NOT (
+                    (recurrence_type IS NULL AND event_date >= date('now','localtime'))
+                    OR (recurrence_type IS NOT NULL
+                        AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now','localtime')))
+                ) THEN 1 ELSE 0 END) AS past,
+            SUM(CASE WHEN is_published = 0 THEN 1 ELSE 0 END) AS drafts,
+            COUNT(*) AS total
+         FROM events"
+    )->fetch();
+    if ($countsRow) $counts = array_merge($counts, $countsRow);
 }
 
-if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
-$sql .= ' ORDER BY event_date ' . ($filter === 'past' ? 'DESC' : 'ASC') . ', start_time ASC';
+$cats = [];
+if ($view === 'categories') {
+    $cats = bsv_db()->query(
+        "SELECT c.id, c.slug, c.label, c.color, c.position,
+                (SELECT COUNT(*) FROM events WHERE events.category = c.slug) AS usage_count
+           FROM event_categories c
+       ORDER BY c.position ASC, c.id ASC"
+    )->fetchAll();
+}
 
-$stmt = bsv_db()->prepare($sql);
-$stmt->execute($params);
-$events = $stmt->fetchAll();
-
-// Stats for the header. Recurring series count as "upcoming" as long as the
-// rule hasn't ended — mirror the $activeClause used for filtering.
-$counts = bsv_db()->query(
-    "SELECT
-        SUM(CASE WHEN is_published = 1 AND (
-                (recurrence_type IS NULL AND event_date >= date('now','localtime'))
-                OR (recurrence_type IS NOT NULL
-                    AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now','localtime')))
-            ) THEN 1 ELSE 0 END) AS upcoming,
-        SUM(CASE WHEN is_published = 1 AND NOT (
-                (recurrence_type IS NULL AND event_date >= date('now','localtime'))
-                OR (recurrence_type IS NOT NULL
-                    AND (recurrence_end_date IS NULL OR recurrence_end_date >= date('now','localtime')))
-            ) THEN 1 ELSE 0 END) AS past,
-        SUM(CASE WHEN is_published = 0 THEN 1 ELSE 0 END) AS drafts,
-        COUNT(*) AS total
-     FROM events"
-)->fetch();
+$locs = [];
+if ($view === 'locations') {
+    $locs = bsv_db()->query(
+        "SELECT l.id, l.name, l.position,
+                (SELECT COUNT(*) FROM events WHERE events.location = l.name) AS usage_count
+           FROM event_locations l
+       ORDER BY l.position ASC, l.name ASC"
+    )->fetchAll();
+}
 
 $csrf = bsv_csrf_token();
 
@@ -128,11 +387,85 @@ $recLabels = [
     'monthly' => 'Lunar',
     'yearly'  => 'Anual',
 ];
-$hasSecondary = $q !== '' || $catFilter !== '' || $recFilter !== '';
 
-bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, modificați sau eliminați evenimente.', null, 'events');
+// ---------------------------------------------------------------------------
+// Header actions change per view so the primary CTA matches context.
+// ---------------------------------------------------------------------------
+$actions = '';
+if ($view === 'list') {
+    $actions = '
+      <a href="index.php" class="adm-btn adm-btn--ghost">
+        <span class="material-symbols-outlined" aria-hidden="true">list</span>
+        <span>Lista evenimente</span>
+      </a>
+      <a href="event.php" class="adm-btn adm-btn--primary">
+        <span class="material-symbols-outlined" aria-hidden="true">add</span>
+        <span>Adaugă eveniment</span>
+      </a>';
+} elseif ($view === 'categories') {
+    $actions = '
+      <button type="button" class="adm-btn adm-btn--ghost" data-enter-reorder data-hide-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">reorder</span>
+        <span>Ordonează</span>
+      </button>
+      <button type="button" class="adm-btn adm-btn--primary" data-open-modal="cat-modal" data-modal-mode="create" data-hide-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">add</span>
+        <span>Adaugă categorie</span>
+      </button>
+      <button type="button" class="adm-btn adm-btn--ghost" data-cancel-reorder data-show-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        <span>Anulează</span>
+      </button>
+      <button type="button" class="adm-btn adm-btn--primary" data-save-reorder data-show-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">save</span>
+        <span>Salvează ordinea</span>
+      </button>';
+} elseif ($view === 'locations') {
+    $actions = '
+      <button type="button" class="adm-btn adm-btn--ghost" data-enter-reorder data-hide-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">reorder</span>
+        <span>Ordonează</span>
+      </button>
+      <button type="button" class="adm-btn adm-btn--primary" data-open-modal="loc-modal" data-modal-mode="create" data-hide-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">add</span>
+        <span>Adaugă locație</span>
+      </button>
+      <button type="button" class="adm-btn adm-btn--ghost" data-cancel-reorder data-show-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        <span>Anulează</span>
+      </button>
+      <button type="button" class="adm-btn adm-btn--primary" data-save-reorder data-show-in-reorder>
+        <span class="material-symbols-outlined" aria-hidden="true">save</span>
+        <span>Salvează ordinea</span>
+      </button>';
+}
+
+$headerTitle = $view === 'categories' ? 'Categorii evenimente'
+             : ($view === 'locations' ? 'Locații evenimente'
+             : 'Evenimente');
+$headerSub   = $view === 'categories' ? 'Gestionați lista de categorii pentru evenimente (nume, culoare). Folosiți „Ordonează” pentru a le rearanja prin drag-and-drop.'
+             : ($view === 'locations'  ? 'Gestionați locațiile sugerate pentru evenimente. Folosiți „Ordonează” pentru a le rearanja.'
+             : 'Gestionați programul parohiei — adăugați, modificați sau eliminați evenimente.');
+
+bsv_admin_header($headerTitle, $headerSub, $actions, 'events');
 ?>
 
+<nav class="admin-subnav" aria-label="Sub-secțiuni Evenimente">
+  <a href="index.php?view=list" class="admin-subnav__link <?= $view === 'list' ? 'is-active' : '' ?>">
+    <span class="material-symbols-outlined" aria-hidden="true">event</span>
+    <span>Evenimente</span>
+  </a>
+  <a href="index.php?view=categories" class="admin-subnav__link <?= $view === 'categories' ? 'is-active' : '' ?>">
+    <span class="material-symbols-outlined" aria-hidden="true">sell</span>
+    <span>Categorii</span>
+  </a>
+  <a href="index.php?view=locations" class="admin-subnav__link <?= $view === 'locations' ? 'is-active' : '' ?>">
+    <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
+    <span>Locații</span>
+  </a>
+</nav>
+
+<?php if ($view === 'list'): ?>
 <div class="toolbar">
   <div class="toolbar__filters" role="tablist" aria-label="Filtru evenimente">
     <a href="<?= h(bsv_events_url($currentQuery, ['filter' => 'upcoming'])) ?>" class="toolbar__filter <?= $filter === 'upcoming' ? 'is-active' : '' ?>">
@@ -151,6 +484,7 @@ bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, m
 </div>
 
 <form method="get" class="events-search" action="index.php" role="search">
+  <input type="hidden" name="view" value="list">
   <input type="hidden" name="filter" value="<?= h($filter) ?>">
   <div class="events-search__group events-search__group--q">
     <span class="material-symbols-outlined events-search__icon" aria-hidden="true">search</span>
@@ -182,7 +516,7 @@ bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, m
       <span>Aplică</span>
     </button>
     <?php if ($hasSecondary): ?>
-      <a class="adm-btn adm-btn--ghost adm-btn--sm" href="<?= h(bsv_events_url(['filter' => $filter], [])) ?>">
+      <a class="adm-btn adm-btn--ghost adm-btn--sm" href="<?= h(bsv_events_url(['view' => 'list', 'filter' => $filter], [])) ?>">
         <span class="material-symbols-outlined" aria-hidden="true">close</span>
         <span>Resetează</span>
       </a>
@@ -224,12 +558,12 @@ bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, m
             $time = 'Toată ziua';
         }
         $recType = (string)($e['recurrence_type'] ?? '');
-        $recLabels = [
+        $recRowLabels = [
             'weekly'  => 'Săptămânal',
             'monthly' => 'Lunar',
             'yearly'  => 'Anual',
         ];
-        $recLabel = $recLabels[$recType] ?? '';
+        $recLabel = $recRowLabels[$recType] ?? '';
       ?>
         <tr>
           <td class="col-date">
@@ -271,7 +605,7 @@ bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, m
             </a>
             <form method="post" class="inline-form" action="<?= h(bsv_events_url($currentQuery, [])) ?>"
                   onsubmit="return confirm('Sigur doriți să ștergeți evenimentul „<?= h(addslashes($e['title'])) ?>”?');">
-              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="action" value="delete_event">
               <input type="hidden" name="id" value="<?= (int)$e['id'] ?>">
               <input type="hidden" name="_token" value="<?= h($csrf) ?>">
               <button class="adm-btn adm-btn--danger adm-btn--sm" type="submit">
@@ -285,5 +619,569 @@ bsv_admin_header('Evenimente', 'Gestionați programul parohiei — adăugați, m
     </tbody>
   </table>
 <?php endif; ?>
+
+<?php elseif ($view === 'categories'): ?>
+
+<?php if (!empty($catErrors['_csrf'])): ?>
+  <div class="flash flash--error">
+    <span class="material-symbols-outlined" aria-hidden="true">error</span>
+    <span><?= h($catErrors['_csrf']) ?></span>
+  </div>
+<?php endif; ?>
+
+<?php if (empty($cats)): ?>
+  <div class="table-empty">
+    <span class="material-symbols-outlined" style="font-size: 2.4rem; color: var(--c-gold);" aria-hidden="true">sell</span>
+    <h3>Nicio categorie</h3>
+    <p>Folosiți butonul „Adaugă categorie” pentru a crea prima categorie.</p>
+    <button type="button" class="adm-btn adm-btn--primary" data-open-modal="cat-modal" data-modal-mode="create">
+      <span class="material-symbols-outlined" aria-hidden="true">add</span>
+      <span>Adaugă categorie</span>
+    </button>
+  </div>
+<?php else: ?>
+  <div class="reorder-banner">
+    <span class="material-symbols-outlined" aria-hidden="true">drag_indicator</span>
+    <span><strong>Mod ordonare:</strong> Trageți rândurile pentru a schimba ordinea. Apăsați „Salvează ordinea” când ați terminat.</span>
+  </div>
+  <table class="events-table" data-sortable="cat_reorder">
+    <thead>
+      <tr>
+        <th class="col-drag" aria-hidden="true"></th>
+        <th>Nume</th>
+        <th>Culoare</th>
+        <th>În câte evenimente</th>
+        <th class="col-actions">Acțiuni</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($cats as $c):
+        $usage = (int)$c['usage_count'];
+        $color = (string)($c['color'] ?? '');
+      ?>
+        <tr data-sortable-id="<?= (int)$c['id'] ?>">
+          <td class="col-drag">
+            <span class="drag-handle" data-drag-handle aria-label="Trage pentru a reordona" title="Trage pentru a reordona">
+              <span class="material-symbols-outlined" aria-hidden="true">drag_indicator</span>
+            </span>
+          </td>
+          <td>
+            <span class="pill-cat" data-cat="<?= h($c['slug']) ?>"<?= $color !== '' ? ' style="--pill-color: ' . h($color) . '"' : '' ?>>
+              <?= h($c['label']) ?>
+            </span>
+          </td>
+          <td>
+            <?php if ($color !== ''): ?>
+              <span class="color-swatch" style="background: <?= h($color) ?>"></span>
+              <code><?= h($color) ?></code>
+            <?php else: ?>
+              <span class="hint">—</span>
+            <?php endif; ?>
+          </td>
+          <td><?= $usage ?> <?= $usage === 1 ? 'eveniment' : 'evenimente' ?></td>
+          <td class="col-actions">
+            <button type="button"
+                    class="adm-btn adm-btn--ghost adm-btn--sm"
+                    data-open-modal="cat-modal"
+                    data-modal-mode="edit"
+                    data-id="<?= (int)$c['id'] ?>"
+                    data-slug="<?= h($c['slug']) ?>"
+                    data-label="<?= h($c['label']) ?>"
+                    data-color="<?= h($color !== '' ? $color : '#C9A24A') ?>">
+              <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+              <span>Editează</span>
+            </button>
+            <form method="post" class="inline-form" action="index.php?view=categories"
+                  onsubmit="return confirm('Sigur doriți să ștergeți categoria „<?= h(addslashes($c['label'])) ?>”?');">
+              <input type="hidden" name="action" value="cat_delete">
+              <input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+              <input type="hidden" name="_token" value="<?= h($csrf) ?>">
+              <button type="submit" class="adm-btn adm-btn--danger adm-btn--sm"
+                      <?= $usage > 0 ? 'disabled title="Este folosită de evenimente — mutați-le pe altă categorie întâi."' : '' ?>>
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                <span>Șterge</span>
+              </button>
+            </form>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+<?php endif; ?>
+
+<?php elseif ($view === 'locations'): ?>
+
+<?php if (!empty($locErrors['_csrf'])): ?>
+  <div class="flash flash--error">
+    <span class="material-symbols-outlined" aria-hidden="true">error</span>
+    <span><?= h($locErrors['_csrf']) ?></span>
+  </div>
+<?php endif; ?>
+
+<?php if (empty($locs)): ?>
+  <div class="table-empty">
+    <span class="material-symbols-outlined" style="font-size: 2.4rem; color: var(--c-gold);" aria-hidden="true">location_on</span>
+    <h3>Nicio locație salvată</h3>
+    <p>Adăugați locațiile pe care le folosiți des pentru a le selecta rapid la crearea evenimentelor.</p>
+    <button type="button" class="adm-btn adm-btn--primary" data-open-modal="loc-modal" data-modal-mode="create">
+      <span class="material-symbols-outlined" aria-hidden="true">add</span>
+      <span>Adaugă locație</span>
+    </button>
+  </div>
+<?php else: ?>
+  <div class="reorder-banner">
+    <span class="material-symbols-outlined" aria-hidden="true">drag_indicator</span>
+    <span><strong>Mod ordonare:</strong> Trageți rândurile pentru a schimba ordinea. Apăsați „Salvează ordinea” când ați terminat.</span>
+  </div>
+  <table class="events-table" data-sortable="loc_reorder">
+    <thead>
+      <tr>
+        <th class="col-drag" aria-hidden="true"></th>
+        <th>Nume</th>
+        <th>În câte evenimente</th>
+        <th class="col-actions">Acțiuni</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($locs as $l): $usage = (int)$l['usage_count']; ?>
+        <tr data-sortable-id="<?= (int)$l['id'] ?>">
+          <td class="col-drag">
+            <span class="drag-handle" data-drag-handle aria-label="Trage pentru a reordona" title="Trage pentru a reordona">
+              <span class="material-symbols-outlined" aria-hidden="true">drag_indicator</span>
+            </span>
+          </td>
+          <td><strong><?= h($l['name']) ?></strong></td>
+          <td><?= $usage ?> <?= $usage === 1 ? 'eveniment' : 'evenimente' ?></td>
+          <td class="col-actions">
+            <button type="button"
+                    class="adm-btn adm-btn--ghost adm-btn--sm"
+                    data-open-modal="loc-modal"
+                    data-modal-mode="edit"
+                    data-id="<?= (int)$l['id'] ?>"
+                    data-name="<?= h($l['name']) ?>">
+              <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+              <span>Editează</span>
+            </button>
+            <form method="post" class="inline-form" action="index.php?view=locations"
+                  onsubmit="return confirm('Ștergeți locația „<?= h(addslashes($l['name'])) ?>” din listă?');">
+              <input type="hidden" name="action" value="loc_delete">
+              <input type="hidden" name="id" value="<?= (int)$l['id'] ?>">
+              <input type="hidden" name="_token" value="<?= h($csrf) ?>">
+              <button type="submit" class="adm-btn adm-btn--danger adm-btn--sm">
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                <span>Șterge</span>
+              </button>
+            </form>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+<?php endif; ?>
+
+<?php endif; /* /view === '…' */ ?>
+
+
+<!-- ====================================================================== -->
+<!-- Category modal (Nume + Slug + Culoare) — order is managed inline        -->
+<!-- ====================================================================== -->
+<dialog class="modal" id="cat-modal" data-modal<?= $catModalOpen ? ' data-autoopen' : '' ?> aria-labelledby="cat-modal-title">
+  <form method="post" action="index.php?view=categories" class="modal__dialog" novalidate data-modal-form>
+    <header class="modal__head">
+      <h2 id="cat-modal-title" data-modal-title>Editează categoria</h2>
+      <button type="button" class="modal__close" data-close-modal aria-label="Închide">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </header>
+
+    <div class="modal__body">
+      <div class="form-grid form-grid--modal">
+        <div class="field field-full">
+          <label for="cat-label">Nume <span class="req">*</span></label>
+          <input type="text" id="cat-label" name="label" maxlength="120" required
+                 value="<?= h($catForm['label']) ?>"
+                 placeholder="ex.: Sfânta Liturghie">
+          <?php if (!empty($catErrors['label'])): ?><span class="err-msg"><?= h($catErrors['label']) ?></span><?php endif; ?>
+        </div>
+
+        <div class="field">
+          <label for="cat-slug">Slug <span class="req">*</span></label>
+          <input type="text" id="cat-slug" name="slug" maxlength="40" required
+                 value="<?= h($catForm['slug']) ?>" pattern="[a-z0-9_-]{2,40}"
+                 placeholder="ex.: liturghie">
+          <span class="hint">Identificator intern — a–z, 0–9, „-”, „_” (2–40 caractere).</span>
+          <?php if (!empty($catErrors['slug'])): ?><span class="err-msg"><?= h($catErrors['slug']) ?></span><?php endif; ?>
+        </div>
+
+        <div class="field">
+          <label for="cat-color">Culoare</label>
+          <input type="color" id="cat-color" name="color"
+                 value="<?= h($catForm['color'] !== '' ? $catForm['color'] : '#C9A24A') ?>">
+          <span class="hint">Apare ca punct colorat și în legenda calendarului.</span>
+          <?php if (!empty($catErrors['color'])): ?><span class="err-msg"><?= h($catErrors['color']) ?></span><?php endif; ?>
+        </div>
+      </div>
+    </div>
+
+    <footer class="modal__foot">
+      <input type="hidden" name="_token" value="<?= h($csrf) ?>">
+      <input type="hidden" name="action" value="cat_create" data-modal-action>
+      <input type="hidden" name="id" value="0" data-modal-id>
+
+      <button type="button" class="adm-btn adm-btn--ghost" data-close-modal>
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        <span>Anulează</span>
+      </button>
+      <button type="submit" class="adm-btn adm-btn--primary">
+        <span class="material-symbols-outlined" aria-hidden="true">save</span>
+        <span data-modal-submit>Salvează</span>
+      </button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- ====================================================================== -->
+<!-- Location modal (Nume only) — order is managed inline                    -->
+<!-- ====================================================================== -->
+<dialog class="modal" id="loc-modal" data-modal<?= $locModalOpen ? ' data-autoopen' : '' ?> aria-labelledby="loc-modal-title">
+  <form method="post" action="index.php?view=locations" class="modal__dialog" novalidate data-modal-form>
+    <header class="modal__head">
+      <h2 id="loc-modal-title" data-modal-title>Editează locația</h2>
+      <button type="button" class="modal__close" data-close-modal aria-label="Închide">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </header>
+
+    <div class="modal__body">
+      <div class="form-grid form-grid--modal">
+        <div class="field field-full">
+          <label for="loc-name">Nume <span class="req">*</span></label>
+          <input type="text" id="loc-name" name="name" maxlength="200" required
+                 value="<?= h($locForm['name']) ?>"
+                 placeholder="ex.: Altarul principal, Sala parohială, Curtea bisericii">
+          <?php if (!empty($locErrors['name'])): ?><span class="err-msg"><?= h($locErrors['name']) ?></span><?php endif; ?>
+        </div>
+      </div>
+    </div>
+
+    <footer class="modal__foot">
+      <input type="hidden" name="_token" value="<?= h($csrf) ?>">
+      <input type="hidden" name="action" value="loc_create" data-modal-action>
+      <input type="hidden" name="id" value="0" data-modal-id>
+
+      <button type="button" class="adm-btn adm-btn--ghost" data-close-modal>
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        <span>Anulează</span>
+      </button>
+      <button type="submit" class="adm-btn adm-btn--primary">
+        <span class="material-symbols-outlined" aria-hidden="true">save</span>
+        <span data-modal-submit>Salvează</span>
+      </button>
+    </footer>
+  </form>
+</dialog>
+
+<script>
+/*
+ * Lightweight modal controller for the categories/locations editors.
+ *
+ *   <button data-open-modal="cat-modal" data-modal-mode="edit"
+ *           data-id=".." data-label=".." data-slug=".." data-color=".." data-position="..">
+ *
+ * When clicked, populates the matching <dialog>'s inputs (fields named in
+ * data-attrs map 1:1 to [name=...] inputs in the modal) and opens it.
+ * If the <dialog> is rendered with data-autoopen (server validation error),
+ * we restore it on page load so the user sees their unsaved changes.
+ */
+(function () {
+  var modals = document.querySelectorAll('[data-modal]');
+  if (!modals.length) return;
+
+  function openModal(modal) {
+    if (typeof modal.showModal === 'function') modal.showModal();
+    else modal.setAttribute('open', '');
+    var firstInput = modal.querySelector('input[type="text"], input[type="number"]');
+    if (firstInput) setTimeout(function () { firstInput.focus(); firstInput.select && firstInput.select(); }, 40);
+  }
+  function closeModal(modal) {
+    if (typeof modal.close === 'function') modal.close();
+    else modal.removeAttribute('open');
+  }
+
+  // Openers — any element with data-open-modal="<id>".
+  document.querySelectorAll('[data-open-modal]').forEach(function (trigger) {
+    trigger.addEventListener('click', function () {
+      var id = trigger.getAttribute('data-open-modal');
+      var modal = document.getElementById(id);
+      if (!modal) return;
+
+      var mode = trigger.getAttribute('data-modal-mode') || 'create';
+      var form = modal.querySelector('[data-modal-form]');
+      if (!form) return;
+
+      // Update title + action hidden + submit label.
+      var title  = modal.querySelector('[data-modal-title]');
+      var action = form.querySelector('[data-modal-action]');
+      var idInp  = form.querySelector('[data-modal-id]');
+      var submit = form.querySelector('[data-modal-submit]');
+      var prefix = id === 'cat-modal' ? 'cat' : (id === 'loc-modal' ? 'loc' : null);
+
+      if (mode === 'edit') {
+        if (title)  title.textContent  = id === 'cat-modal' ? 'Editează categoria' : 'Editează locația';
+        if (submit) submit.textContent = 'Salvează modificările';
+        if (action && prefix) action.value = prefix + '_update';
+        if (idInp) idInp.value = trigger.getAttribute('data-id') || '0';
+      } else {
+        if (title)  title.textContent  = id === 'cat-modal' ? 'Adaugă categorie' : 'Adaugă locație';
+        if (submit) submit.textContent = id === 'cat-modal' ? 'Adaugă categoria' : 'Adaugă locația';
+        if (action && prefix) action.value = prefix + '_create';
+        if (idInp) idInp.value = '0';
+      }
+
+      // Copy all other data-<field> attrs onto matching [name=<field>] inputs.
+      Array.prototype.forEach.call(trigger.attributes, function (attr) {
+        if (!attr.name.startsWith('data-')) return;
+        var key = attr.name.slice(5);
+        if (['open-modal', 'modal-mode', 'id'].indexOf(key) !== -1) return;
+        var input = form.querySelector('[name="' + key + '"]');
+        if (input) input.value = attr.value;
+      });
+
+      // When creating, reset all fields to their defaults (blank inputs).
+      if (mode === 'create') {
+        form.querySelectorAll('input[type="text"], input[type="number"]').forEach(function (inp) {
+          if (inp.name === 'position') inp.value = '0';
+          else inp.value = '';
+        });
+        var color = form.querySelector('input[type="color"]');
+        if (color) color.value = '#C9A24A';
+      }
+
+      // Clear any stale error messages from a previous open.
+      form.querySelectorAll('.err-msg').forEach(function (el) { el.remove(); });
+
+      openModal(modal);
+    });
+  });
+
+  // Close buttons inside each modal.
+  modals.forEach(function (modal) {
+    modal.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+      btn.addEventListener('click', function () { closeModal(modal); });
+    });
+    // Click on the backdrop (native <dialog>::backdrop area) closes the modal.
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) closeModal(modal);
+    });
+  });
+
+  // If the server sent us back with validation errors, reopen the right modal.
+  document.querySelectorAll('[data-autoopen]').forEach(function (modal) {
+    openModal(modal);
+  });
+})();
+</script>
+
+<script>
+/*
+ * Drag-to-reorder controller (deferred save with cancel + FLIP animation).
+ *
+ * Flow:
+ *   1. Click "Ordonează"     → snapshot baseline, body.is-reorder
+ *   2. Drag rows             → DOM-only; sibling rows slide using the FLIP
+ *                              technique (invert old position, transition to 0)
+ *   3. Click "Anulează"      → restore baseline order, exit reorder mode
+ *   4. Click "Salvează"      → POST ids to server, toast on result, exit mode
+ *
+ * Table markup contract:
+ *   <table data-sortable="cat_reorder|loc_reorder">
+ *     <tr data-sortable-id="<id>"> ... <span data-drag-handle>…</span> ... </tr>
+ */
+(function () {
+  var body  = document.body;
+  var table = document.querySelector('table[data-sortable]');
+
+  if (!table) return;
+  var tbody  = table.querySelector('tbody');
+  var action = table.getAttribute('data-sortable');
+  var csrf   = <?= json_encode($csrf) ?>;
+  if (!tbody || !action) return;
+
+  var baseline = null;   // id[] captured on enter; the "undo target"
+  var drag     = null;
+
+  // --- Enter / cancel / save ----------------------------------------------
+  document.querySelectorAll('[data-enter-reorder]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      baseline = snapshotOrder();
+      body.classList.add('is-reorder');
+    });
+  });
+  document.querySelectorAll('[data-cancel-reorder]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (baseline) animatedRestore(baseline);
+      baseline = null;
+      body.classList.remove('is-reorder');
+    });
+  });
+  document.querySelectorAll('[data-save-reorder]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var current = snapshotOrder();
+      if (!baseline || current.join(',') === baseline.join(',')) {
+        baseline = null;
+        body.classList.remove('is-reorder');
+        return;
+      }
+      btn.disabled = true;
+      persistOrder(current, function (ok) {
+        btn.disabled = false;
+        if (ok) {
+          baseline = null;
+          body.classList.remove('is-reorder');
+          toast('Ordine salvată.', 'success');
+        } else {
+          toast('Nu am putut salva. Încercați din nou.', 'error');
+        }
+      });
+    });
+  });
+
+  // --- Helpers ------------------------------------------------------------
+  function snapshotOrder() {
+    return Array.prototype.map.call(
+      tbody.querySelectorAll('tr[data-sortable-id]'),
+      function (r) { return r.getAttribute('data-sortable-id'); }
+    );
+  }
+
+  /** Reorder the DOM to match `ids` and animate every row that moved. */
+  function animatedRestore(ids) {
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-sortable-id]'));
+    var oldTops = new Map();
+    rows.forEach(function (r) { oldTops.set(r, r.getBoundingClientRect().top); });
+    ids.forEach(function (id) {
+      var row = tbody.querySelector('tr[data-sortable-id="' + id + '"]');
+      if (row) tbody.appendChild(row);
+    });
+    flipAnimate(rows, oldTops);
+  }
+
+  /** The FLIP step: given rows with their old `top` positions cached in `oldTops`,
+   *  apply a zero-duration inverse transform so the row appears to still be at
+   *  its old position, then animate back to 0 via the CSS transition. */
+  function flipAnimate(rows, oldTops) {
+    rows.forEach(function (r) {
+      var oldTop = oldTops.get(r);
+      if (oldTop == null) return;
+      var newTop = r.getBoundingClientRect().top;
+      var dy = oldTop - newTop;
+      if (Math.abs(dy) < 0.5) return;
+      r.style.transition = 'none';
+      r.style.transform  = 'translateY(' + dy + 'px)';
+      // Force a reflow so the snapped transform is committed before we start
+      // the transition — otherwise the browser collapses both steps together.
+      r.getBoundingClientRect();
+      r.style.transition = '';
+      r.style.transform  = '';
+    });
+  }
+
+  function persistOrder(ids, done) {
+    var fd = new FormData();
+    fd.append('action', action);
+    fd.append('order',  ids.join(','));
+    fd.append('_token', csrf);
+    fetch(location.pathname + (location.search || ''), {
+      method: 'POST', body: fd, credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+    })
+    .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+    .then(function (j) { done(!!(j && j.ok)); })
+    .catch(function () { done(false); });
+  }
+
+  function toast(msg, type) {
+    var t = document.querySelector('.reorder-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.className = 'reorder-toast';
+      (table.parentNode || document.body).insertBefore(t, table);
+    }
+    t.textContent = msg;
+    t.setAttribute('data-type', type);
+    t.classList.remove('is-hiding');
+    t.classList.add('is-showing');
+    clearTimeout(t._hideT);
+    t._hideT = setTimeout(function () {
+      t.classList.remove('is-showing');
+      t.classList.add('is-hiding');
+    }, 2400);
+  }
+
+  // --- Pointer drag (rows shift as you cross midpoints, with FLIP) --------
+  tbody.addEventListener('pointerdown', function (e) {
+    if (!body.classList.contains('is-reorder')) return;
+    var handle = e.target.closest('[data-drag-handle]');
+    if (!handle) return;
+    var row = handle.closest('tr[data-sortable-id]');
+    if (!row) return;
+    e.preventDefault();
+    drag = { row: row };
+    row.classList.add('is-dragging');
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+
+  tbody.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var y = e.clientY;
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-sortable-id]'));
+    if (rows.length < 2) return;
+
+    // Decide where to insert:
+    //   • If pointer is over a sibling, drop before/after based on its midline.
+    //   • If pointer is above the first row, insert at the top.
+    //   • If pointer is below the last row, append to the end (target = null).
+    //   • Otherwise (gap between rows), skip.
+    var target;       // reference node for insertBefore; null means "append"
+    var resolved = false;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (r === drag.row) continue;
+      var rect = r.getBoundingClientRect();
+      if (y < rect.top || y > rect.bottom) continue;
+      var mid = rect.top + rect.height / 2;
+      target = (y < mid) ? r : r.nextElementSibling;
+      resolved = true;
+      break;
+    }
+    if (!resolved) {
+      var first = rows[0].getBoundingClientRect();
+      var last  = rows[rows.length - 1].getBoundingClientRect();
+      if (y < first.top)      target = rows[0];
+      else if (y > last.bottom) target = null;
+      else return;
+    }
+    if (drag.row === target || drag.row.nextSibling === target) return;
+
+    var oldTops = new Map();
+    rows.forEach(function (r) {
+      if (r === drag.row) return;   // dragged row is not animated
+      oldTops.set(r, r.getBoundingClientRect().top);
+    });
+
+    tbody.insertBefore(drag.row, target);
+
+    flipAnimate(rows.filter(function (r) { return r !== drag.row; }), oldTops);
+  });
+
+  function endDrag() {
+    if (!drag) return;
+    drag.row.classList.remove('is-dragging');
+    drag = null;
+  }
+  tbody.addEventListener('pointerup', endDrag);
+  tbody.addEventListener('pointercancel', endDrag);
+})();
+</script>
 
 <?php bsv_admin_footer(); ?>

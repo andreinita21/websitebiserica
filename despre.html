@@ -61,12 +61,12 @@
   <main id="main">
 
     <!-- ========== Hero ========== -->
-    <section class="hero" aria-label="Despre parohia noastră">
+    <section class="hero hero--compact" aria-label="Despre parohia noastră">
       <div class="hero__bg" aria-hidden="true">
         <img src="assets/img/hero.png" alt="">
       </div>
 
-      <div class="hero__inner">
+      <div class="hero__inner hero__inner--center">
         <div>
           <span class="eyebrow hero__eyebrow">Clerul · Istorie </span>
           <h1 class="hero__title">
@@ -143,44 +143,12 @@
           </p>
         </div>
 
-        <div class="grid-cards">
-          <article class="clergy-card reveal">
-            <div class="clergy-card__mark" aria-hidden="true">✦</div>
-            <span class="clergy-card__role">Paroh</span>
-            <h3 class="clergy-card__name">Pr. Mihai Ardelean</h3>
-            <p class="clergy-card__bio">
-              Slujitor al parohiei din anul 1993, cu o lucrare dedicată catehezei familiei și educației duhovnicești a
-              tinerilor.
+        <div class="grid-cards grid-cards--4" data-clergy-list>
+          <noscript>
+            <p style="grid-column: 1 / -1; text-align: center; color: var(--c-snow-muted);">
+              Activați JavaScript pentru a vedea membrii clerului.
             </p>
-          </article>
-
-          <article class="clergy-card reveal delay-1">
-            <div class="clergy-card__mark" aria-hidden="true">✦</div>
-            <span class="clergy-card__role">Preot slujitor</span>
-            <h3 class="clergy-card__name">Pr. Ioan Popescu</h3>
-            <p class="clergy-card__bio">
-              Coordonator al proiectelor de filantropie și al grupului de tineri, implicat în voluntariatul parohial.
-            </p>
-          </article>
-
-          <article class="clergy-card reveal delay-2">
-            <div class="clergy-card__mark" aria-hidden="true">✦</div>
-            <span class="clergy-card__role">Diacon</span>
-            <h3 class="clergy-card__name">Diac. Ștefan Radu</h3>
-            <p class="clergy-card__bio">
-              Responsabil cu coordonarea strănii și a corului parohial, slujind în toate zilele de praznic.
-            </p>
-          </article>
-
-          <article class="clergy-card reveal delay-3">
-            <div class="clergy-card__mark" aria-hidden="true">✦</div>
-            <span class="clergy-card__role">Cântăreț bisericesc</span>
-            <h3 class="clergy-card__name">Pr. Andrei Stanciu</h3>
-            <p class="clergy-card__bio">
-              Îndrumător al tinerilor cântăreți și al programului de muzică psaltică, slujind cu dedicare la sfintele
-              slujbe.
-            </p>
-          </article>
+          </noscript>
         </div>
       </div>
     </section>
@@ -380,6 +348,7 @@
 
   <script src="assets/js/main.js" defer></script>
   <script src="assets/js/site-contact.js" defer></script>
+  <script src="assets/js/site-clergy.js" defer></script>
 </body>
 
 </html>
