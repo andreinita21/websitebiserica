@@ -55,10 +55,6 @@ $counts = bsv_db()->query(
 $csrf = bsv_csrf_token();
 
 $actions = '
-  <a href="announcements.php" class="adm-btn adm-btn--ghost">
-    <span class="material-symbols-outlined" aria-hidden="true">list</span>
-    <span>Lista anunțuri</span>
-  </a>
   <a href="announcement.php" class="adm-btn adm-btn--primary">
     <span class="material-symbols-outlined" aria-hidden="true">add</span>
     <span>Adaugă anunț</span>

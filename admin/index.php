@@ -389,10 +389,6 @@ $recLabels = [
 $actions = '';
 if ($view === 'list') {
     $actions = '
-      <a href="index.php" class="adm-btn adm-btn--ghost">
-        <span class="material-symbols-outlined" aria-hidden="true">list</span>
-        <span>Lista evenimente</span>
-      </a>
       <a href="event.php" class="adm-btn adm-btn--primary">
         <span class="material-symbols-outlined" aria-hidden="true">add</span>
         <span>Adaugă eveniment</span>

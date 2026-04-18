@@ -29,10 +29,6 @@ function bsv_admin_header(string $title, string $subtitle = '', ?string $actions
 
     if ($actionsHtml === null) {
         $actionsHtml = '
-          <a href="index.php" class="adm-btn adm-btn--ghost">
-            <span class="material-symbols-outlined" aria-hidden="true">list</span>
-            <span>Lista evenimente</span>
-          </a>
           <a href="event.php" class="adm-btn adm-btn--primary">
             <span class="material-symbols-outlined" aria-hidden="true">add</span>
             <span>Adaugă eveniment</span>

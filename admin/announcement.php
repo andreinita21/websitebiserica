@@ -180,10 +180,6 @@ $subtitle = $isEdit
     : 'Completați câmpurile de mai jos — alegeți dacă anunțul este valabil pentru o zi, un interval, sau o perioadă în zile.';
 
 $actions = '
-  <a href="announcements.php" class="adm-btn adm-btn--ghost">
-    <span class="material-symbols-outlined" aria-hidden="true">list</span>
-    <span>Lista anunțuri</span>
-  </a>
   <a href="announcement.php" class="adm-btn adm-btn--primary">
     <span class="material-symbols-outlined" aria-hidden="true">add</span>
     <span>Adaugă anunț</span>
