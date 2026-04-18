@@ -38,6 +38,9 @@ function bsv_db(): PDO
     bsv_seed_event_categories($pdo);
     bsv_seed_event_locations($pdo);
 
+    require_once __DIR__ . '/settings.php';
+    bsv_settings_seed_defaults($pdo);
+
     if ($freshInstall) {
         bsv_seed_sample_events($pdo);
         bsv_seed_sample_gallery_categories($pdo);

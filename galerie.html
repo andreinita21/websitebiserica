@@ -119,7 +119,7 @@
   <!-- ========== Footer ========== -->
   <footer class="site-footer" role="contentinfo">
     <div class="container">
-      <div class="site-footer__grid" style="grid-template-columns: 1.8fr 1fr 1.1fr;">
+      <div class="site-footer__grid">
         <div>
           <a href="index.html" class="brand site-footer__brand">
             <img class="brand__mark" src="assets/img/LOGO.png" alt="" aria-hidden="true">
@@ -148,10 +148,10 @@
           <h3 class="site-footer__title">Contact</h3>
           <ul class="site-footer__list">
             <li>
-              <p>Strada Nicolae Titulescu<br>100054 Ploiești, Prahova</p>
+              <p data-contact="address">Strada Nicolae Titulescu<br>100054 Ploiești, Prahova</p>
             </li>
-            <li><a href="tel:+40722000000">+40 722 000 000</a></li>
-            <li><a href="mailto:contact@sfvasile-ploiesti.ro">contact@sfvasile-ploiesti.ro</a></li>
+            <li><a href="tel:+40722000000" data-contact="phone_link">+40 722 000 000</a></li>
+            <li><a href="mailto:contact@sfvasile-ploiesti.ro" data-contact="email_link">contact@sfvasile-ploiesti.ro</a></li>
           </ul>
         </div>
       </div>
@@ -166,6 +166,7 @@
   </footer>
 
   <script src="assets/js/main.js" defer></script>
+  <script src="assets/js/site-contact.js" defer></script>
   <script src="assets/js/gallery.js" defer></script>
 </body>
 

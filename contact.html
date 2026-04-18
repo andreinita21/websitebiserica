@@ -86,25 +86,27 @@
       <img src="assets/img/divider-ornament.svg" alt="" class="divider-ornament__svg">
     </div>
 
-    <!-- ========== Contact + Form ========== -->
+    <!-- ========== Contact + Map ========== -->
     <section class="section section--cream" aria-labelledby="contact-h">
       <div class="container">
-        <div class="split-11" style="align-items: start;">
-          <!-- Contact info -->
-          <div class="reveal">
-            <h2 id="contact-h"
-              style="font-family: var(--f-serif); font-size: clamp(2rem, 3.8vw, 3rem); line-height: 1.15; letter-spacing: -0.005em; font-weight: 400; max-width: 14ch; margin-bottom: var(--s-5);">
-              Date de <em class="text-gradient-gold" style="font-style: italic;">Contact</em>
-            </h2>
-            <span class="section-heading__rule" style="margin-bottom: var(--s-7); display: block;"></span>
+        <div class="section-heading section-heading--center reveal">
+          <span class="eyebrow">Cum ne găsești</span>
+          <h2 id="contact-h" style="margin-top: var(--s-4);">
+            Date de <em class="text-gradient-gold" style="font-style: italic;">Contact</em>
+          </h2>
+          <span class="section-heading__rule"></span>
+        </div>
 
+        <div class="split-11" style="align-items: start;">
+          <!-- Contact info on the left -->
+          <div class="reveal">
             <div class="info-list">
               <div class="info-row">
                 <span class="info-row__icon" aria-hidden="true"><span
                     class="material-symbols-outlined">location_on</span></span>
                 <div>
                   <span class="info-row__label">Adresă</span>
-                  <p class="info-row__value">Strada Nicolae Titulescu<br>100054, Ploiești, Prahova</p>
+                  <p class="info-row__value" data-contact="address">Strada Nicolae Titulescu<br>100054, Ploiești, Prahova</p>
                 </div>
               </div>
 
@@ -113,7 +115,7 @@
                     class="material-symbols-outlined">call</span></span>
                 <div>
                   <span class="info-row__label">Telefon</span>
-                  <p class="info-row__value"><a href="tel:+40722000000" style="color: inherit;">+40 722 000 000</a></p>
+                  <p class="info-row__value"><a href="tel:+40722000000" style="color: inherit;" data-contact="phone_link">+40 722 000 000</a></p>
                 </div>
               </div>
 
@@ -123,7 +125,7 @@
                 <div>
                   <span class="info-row__label">Email</span>
                   <p class="info-row__value"><a href="mailto:contact@sfvasile-ploiesti.ro"
-                      style="color: inherit;">contact@sfvasile-ploiesti.ro</a></p>
+                      style="color: inherit;" data-contact="email_link">contact@sfvasile-ploiesti.ro</a></p>
                 </div>
               </div>
 
@@ -132,7 +134,7 @@
                     class="material-symbols-outlined">schedule</span></span>
                 <div>
                   <span class="info-row__label">Program slujbe</span>
-                  <p class="info-row__value">Luni – Vineri · 08:00 – 19:00<br>Sâmbătă – Duminică · 07:30 – 20:00</p>
+                  <p class="info-row__value" data-contact="schedule_visiting">Luni – Vineri · 08:00 – 19:00<br>Sâmbătă – Duminică · 07:30 – 20:00</p>
                 </div>
               </div>
 
@@ -141,40 +143,28 @@
                     class="material-symbols-outlined">church</span></span>
                 <div>
                   <span class="info-row__label">Sfânta Liturghie</span>
-                  <p class="info-row__value">Duminică · 09:00<br>Vecernia: Sâmbătă · 17:00</p>
+                  <p class="info-row__value" data-contact="schedule_liturgy">Duminică · 09:00<br>Vecernia: Sâmbătă · 17:00</p>
                 </div>
               </div>
             </div>
           </div>
 
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== Map ========== -->
-    <section class="section section--cream-2" aria-labelledby="harta-h">
-      <div class="container">
-        <div class="section-heading section-heading--center reveal">
-          <span class="eyebrow">Cum ne găsești</span>
-          <h2 id="harta-h" style="margin-top: var(--s-4);">
-            În inima <em class="text-gradient-gold" style="font-style: italic;">Ploieștiului</em>
-          </h2>
-          <span class="section-heading__rule"></span>
-        </div>
-
-        <div class="reveal">
-          <div class="map-wrap" style="aspect-ratio: 16 / 9;">
-            <iframe title="Harta — Biserica Sfântul Vasile, Ploiești"
-              src="https://maps.google.com/maps?q=44.9472211,26.0088999&amp;z=17&amp;output=embed" loading="lazy"
-              referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+          <!-- Map on the right -->
+          <div class="reveal delay-1">
+            <div class="map-wrap">
+              <iframe title="Harta — Biserica Sfântul Vasile, Ploiești"
+                src="https://maps.google.com/maps?q=44.9472211,26.0088999&amp;z=17&amp;output=embed" loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade" allowfullscreen
+                data-contact="map_embed"></iframe>
+            </div>
+            <p class="mt-4" style="font-size: 0.85rem; color: var(--c-ink-muted); text-align: right;">
+              <a href="https://www.google.com/maps/place/Saint+Basil+Church/@44.9472211,26.0088999,17z" target="_blank"
+                rel="noopener" class="link-arrow" style="font-size: 0.72rem;" data-contact="map_link">
+                <span>Deschide în Google Maps</span>
+                <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
+              </a>
+            </p>
           </div>
-          <p class="mt-4" style="font-size: 0.85rem; color: var(--c-ink-muted); text-align: right;">
-            <a href="https://www.google.com/maps/place/Saint+Basil+Church/@44.9472211,26.0088999,17z" target="_blank"
-              rel="noopener" class="link-arrow" style="font-size: 0.72rem;">
-              <span>Deschide în Google Maps</span>
-              <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
-            </a>
-          </p>
         </div>
       </div>
     </section>
@@ -184,7 +174,7 @@
   <!-- ========== Footer ========== -->
   <footer class="site-footer" role="contentinfo">
     <div class="container">
-      <div class="site-footer__grid" style="grid-template-columns: 1.8fr 1fr 1.1fr;">
+      <div class="site-footer__grid">
         <div>
           <a href="index.html" class="brand site-footer__brand">
             <img class="brand__mark" src="assets/img/LOGO.png" alt="" aria-hidden="true">
@@ -213,10 +203,10 @@
           <h3 class="site-footer__title">Contact</h3>
           <ul class="site-footer__list">
             <li>
-              <p>Strada Nicolae Titulescu<br>100054 Ploiești, Prahova</p>
+              <p data-contact="address">Strada Nicolae Titulescu<br>100054 Ploiești, Prahova</p>
             </li>
-            <li><a href="tel:+40722000000">+40 722 000 000</a></li>
-            <li><a href="mailto:contact@sfvasile-ploiesti.ro">contact@sfvasile-ploiesti.ro</a></li>
+            <li><a href="tel:+40722000000" data-contact="phone_link">+40 722 000 000</a></li>
+            <li><a href="mailto:contact@sfvasile-ploiesti.ro" data-contact="email_link">contact@sfvasile-ploiesti.ro</a></li>
           </ul>
         </div>
       </div>
@@ -230,6 +220,7 @@
   </footer>
 
   <script src="assets/js/main.js" defer></script>
+  <script src="assets/js/site-contact.js" defer></script>
 </body>
 
 </html>

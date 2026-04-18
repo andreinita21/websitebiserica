@@ -104,6 +104,10 @@ function bsv_admin_header(string $title, string $subtitle = '', ?string $actions
           <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
           <span>Locații</span>
         </a>
+        <a href="contact.php" class="admin-section-nav__link <?= $activeSection === 'contact' ? 'is-active' : '' ?>">
+          <span class="material-symbols-outlined" aria-hidden="true">contact_mail</span>
+          <span>Contact</span>
+        </a>
       </nav>
 
       <div class="admin-page-head">

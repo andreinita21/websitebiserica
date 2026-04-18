@@ -941,6 +941,7 @@ address { font-style: normal; }
   font-size: 1.1rem;
   color: var(--c-ink-text);
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 
@@ -961,7 +962,7 @@ address { font-style: normal; }
   padding-bottom: var(--s-8);
 }
 @media (min-width: 720px) {
-  .site-footer__grid { grid-template-columns: 1.8fr 1fr 1fr 1.1fr; gap: var(--s-7); }
+  .site-footer__grid { grid-template-columns: 1.8fr 1fr 1.1fr; gap: var(--s-7); }
 }
 
 .site-footer__brand { margin-bottom: var(--s-5); }
@@ -1004,6 +1005,7 @@ address { font-style: normal; }
   color: var(--c-snow-muted);
   transition: color var(--t-smooth);
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 .site-footer__list a:hover { color: var(--c-gold); }
 

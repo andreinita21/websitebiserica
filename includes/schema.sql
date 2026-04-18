@@ -97,3 +97,9 @@ CREATE TABLE IF NOT EXISTS gallery_photo_categories (
 
 CREATE INDEX IF NOT EXISTS idx_gallery_pc_cat ON gallery_photo_categories(category_id);
 
+CREATE TABLE IF NOT EXISTS site_settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now'))
+);
+

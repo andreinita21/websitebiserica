@@ -15,3 +15,6 @@
 # not to source control. Keep the folder via .gitkeep.
 /uploads/gallery/**
 !/uploads/gallery/.gitkeep
+
+# Local/raw source photos — not tracked in version control
+/Poze_Biserica/
