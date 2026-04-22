@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/backup-lib.php';
 
 function bsv_flash_set(string $type, string $message): void
 {
@@ -25,6 +26,10 @@ function bsv_flash_take(): ?array
 function bsv_admin_header(string $title, string $subtitle = '', ?string $actionsHtml = null, string $activeSection = 'events'): void
 {
     bsv_require_admin();
+    // Fire-and-forget daily backup: runs in the shutdown phase, after the
+    // response is flushed, so admin pages stay snappy even on the one day
+    // per day that actually does work.
+    bsv_backup_schedule_daily_after_response();
     $user = h($_SESSION['bsv_admin_user'] ?? 'Administrator');
 
     if ($actionsHtml === null) {
@@ -100,6 +105,10 @@ function bsv_admin_header(string $title, string $subtitle = '', ?string $actions
         <a href="contact.php" class="admin-section-nav__link <?= $activeSection === 'contact' ? 'is-active' : '' ?>">
           <span class="material-symbols-outlined" aria-hidden="true">contact_mail</span>
           <span>Contact</span>
+        </a>
+        <a href="backup.php" class="admin-section-nav__link <?= $activeSection === 'backup' ? 'is-active' : '' ?>">
+          <span class="material-symbols-outlined" aria-hidden="true">backup</span>
+          <span>Backup</span>
         </a>
       </nav>
 

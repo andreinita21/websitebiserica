@@ -11,6 +11,9 @@
 /data/*.db-wal
 /data/*.db-shm
 
+# Auto-snapshots created by the admin backup/restore screen — local only.
+/data/backups/
+
 # User-uploaded gallery images — content belongs to the installation,
 # not to source control. Keep the folder via .gitkeep.
 /uploads/gallery/**
